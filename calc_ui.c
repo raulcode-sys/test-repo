@@ -1,12 +1,12 @@
 
 
-#define CU_BG  TH_BG
-#define CU_FG  TH_FG
-#define CU_HI  TH_HI
-#define CU_DIM TH_DIM
-#define CU_YEL TH_YEL
-#define CU_GRN TH_GRN
-#define CU_RED TH_RED
+#define CU_BG  "\x1b[48;5;17m"
+#define CU_FG  "\x1b[38;5;51m"
+#define CU_HI  "\x1b[48;5;51m\x1b[38;5;17m"
+#define CU_DIM "\x1b[38;5;33m"
+#define CU_YEL "\x1b[38;5;226m"
+#define CU_GRN "\x1b[38;5;82m"
+#define CU_RED "\x1b[38;5;196m"
 #define CU_RST "\x1b[0m"
 
 static double calc_eval(const char *s, int *err);  

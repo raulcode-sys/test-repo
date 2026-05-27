@@ -1,12 +1,12 @@
 #include <mbedtls/sha256.h>
 
-#define LG_BG   TH_BG
-#define LG_FG   TH_FG
-#define LG_DIM  TH_DIM
-#define LG_DIM2 TH_DIM2
-#define LG_YEL  TH_YEL
-#define LG_GRN  TH_GRN
-#define LG_RED  TH_RED
+#define LG_BG   "\x1b[48;5;17m"
+#define LG_FG   "\x1b[38;5;51m"
+#define LG_DIM  "\x1b[38;5;33m"
+#define LG_DIM2 "\x1b[38;5;67m"
+#define LG_YEL  "\x1b[38;5;226m"
+#define LG_GRN  "\x1b[38;5;82m"
+#define LG_RED  "\x1b[38;5;196m"
 
 #define PERSIST_MOUNT  "/persist"
 #define USERS_DB       "/persist/users.db"

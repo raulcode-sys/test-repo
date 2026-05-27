@@ -1,13 +1,13 @@
 
 
-#define MN_BG  TH_BG
-#define MN_FG  TH_FG
-#define MN_HI  TH_HI
-#define MN_DIM TH_DIM
-#define MN_DIM2 TH_DIM2
-#define MN_YEL TH_YEL
-#define MN_GRN TH_GRN
-#define MN_RED TH_RED
+#define MN_BG  "\x1b[48;5;17m"
+#define MN_FG  "\x1b[38;5;51m"
+#define MN_HI  "\x1b[48;5;51m\x1b[38;5;17m"
+#define MN_DIM "\x1b[38;5;33m"
+#define MN_DIM2 "\x1b[38;5;67m"
+#define MN_YEL "\x1b[38;5;226m"
+#define MN_GRN "\x1b[38;5;82m"
+#define MN_RED "\x1b[38;5;196m"
 
 static int b_calcui(Cmd *c);  
 static int b_settings(Cmd *c);
@@ -21,7 +21,7 @@ static const struct { const char *label; const char *desc; const char *cmd; int 
     {"Editor",     "Text editor (nano-style)",      "edit",    0},
     {"Files",      "File explorer",                 "files",   0},
     {"Web",        "HTTP browser (ethernet)",       "web",     0},
-    {"Settings",   "Themes & preferences",          NULL,      2},
+    {"Settings",   "Themes & wallpapers",           NULL,      2},
     {"Reboot",     "Restart the machine",           "reboot",  0},
     {"Logout",     "Log out / switch user",         "logout",  0},
     {"Poweroff",   "Shut down",                     "poweroff",0},

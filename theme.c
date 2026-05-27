@@ -54,15 +54,7 @@ static void theme_apply(int idx) {
 
     if (t->wp_idx >= 0 && t->wp_idx < WP_COUNT) {
         wp_current = t->wp_idx;
-        if (fb.wp) {
-            for (int y = 0; y < fb.h; y++) {
-                int sy = y * WP_H / fb.h; if (sy >= WP_H) sy = WP_H - 1;
-                for (int x = 0; x < fb.w; x++) {
-                    int sx = x * WP_W / fb.w; if (sx >= WP_W) sx = WP_W - 1;
-                    fb.wp[y * fb.w + x] = wp_data[sy * WP_W + sx];
-                }
-            }
-        }
+        fb_rescale_wp();
     }
 }
 

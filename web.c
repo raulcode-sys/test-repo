@@ -951,7 +951,6 @@ static int b_web(Cmd *c) { (void)c;
     wb_w("\x1b[?25l\x1b[2J");
 
     /* show mouse cursor for web browsing */
-    fb_cursor_on();
 
     wb_history_load();
 
@@ -1070,7 +1069,6 @@ static int b_web(Cmd *c) { (void)c;
         free(page); free(text);
     }
 
-    fb_cursor_off();
     wb_w("\x1b[0m\x1b[2J\x1b[H\x1b[?25h");
     tcsetattr(0,TCSANOW,&old);
     return 0;

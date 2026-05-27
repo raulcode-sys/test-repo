@@ -1,13 +1,13 @@
 
 
-#define FX_BG  TH_BG
-#define FX_FG  TH_FG
-#define FX_HI  TH_HI
-#define FX_DIM TH_DIM
-#define FX_DIM2 TH_DIM2
-#define FX_YEL TH_YEL
-#define FX_GRN TH_GRN
-#define FX_RED TH_RED
+#define FX_BG  "\x1b[48;5;17m"
+#define FX_FG  "\x1b[38;5;51m"
+#define FX_HI  "\x1b[48;5;51m\x1b[38;5;17m"
+#define FX_DIM "\x1b[38;5;33m"
+#define FX_DIM2 "\x1b[38;5;67m"
+#define FX_YEL "\x1b[38;5;226m"
+#define FX_GRN "\x1b[38;5;82m"
+#define FX_RED "\x1b[38;5;196m"
 
 typedef struct {
     char  name[256];

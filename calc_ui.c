@@ -1,0 +1,135 @@
+
+
+#define CU_BG  TH_BG
+#define CU_FG  TH_FG
+#define CU_HI  TH_HI
+#define CU_DIM TH_DIM
+#define CU_YEL TH_YEL
+#define CU_GRN TH_GRN
+#define CU_RED TH_RED
+#define CU_RST "\x1b[0m"
+
+static double calc_eval(const char *s, int *err);  
+
+static void cu_w(const char *s) { write(1, s, strlen(s)); }
+static void cu_at(int r, int c) { char b[24]; snprintf(b,24,"\x1b[%d;%dH",r,c); cu_w(b); }
+
+static void cu_paint_bg(int rows, int cols) {
+    cu_w(CU_BG);
+    cu_at(1,1);
+    for (int r=0;r<rows;r++) {
+        for (int c=0;c<cols;c++) cu_w(" ");
+        if (r<rows-1) cu_w("\r\n");
+    }
+}
+
+static void cu_draw(const char *expr, const char *result, int err, int rows, int cols) {
+    cu_paint_bg(rows, cols);
+
+    const char *title = "  T R I U M P H    C A L C U L A T O R  ";
+    int tx = (cols - (int)strlen(title)) / 2;
+    cu_at(2, tx);
+    cu_w(CU_FG"\x1b[1m"); cu_w(title); cu_w("\x1b[22m");
+
+    int bw = 50; if (bw>cols-4) bw=cols-4;
+    int bx = (cols - bw) / 2;
+    int by = 6;
+
+    cu_at(by, bx); cu_w(CU_FG"\u250c");
+    for (int i=0;i<bw-2;i++) cu_w("\u2500");
+    cu_w("\u2510");
+
+    cu_at(by+1, bx);    cu_w(CU_FG"\u2502 "CU_DIM"Expr: "CU_YEL);
+    
+    char ebuf[256]; snprintf(ebuf,256,"%-40s", expr);
+    cu_w(ebuf);
+    cu_at(by+1, bx+bw-1); cu_w(CU_FG"\u2502");
+
+    cu_at(by+2, bx); cu_w(CU_FG"\u251c");
+    for (int i=0;i<bw-2;i++) cu_w("\u2500");
+    cu_w("\u2524");
+
+    cu_at(by+3, bx); cu_w(CU_FG"\u2502 "CU_DIM"= ");
+    if (err) cu_w(CU_RED);
+    else     cu_w(CU_GRN"\x1b[1m");
+    char rbuf[256]; snprintf(rbuf,256,"%-44s", result);
+    cu_w(rbuf);
+    cu_w("\x1b[22m");
+    cu_at(by+3, bx+bw-1); cu_w(CU_FG"\u2502");
+
+    cu_at(by+4, bx); cu_w(CU_FG"\u2514");
+    for (int i=0;i<bw-2;i++) cu_w("\u2500");
+    cu_w("\u2518");
+
+    cu_at(rows-2, 4);
+    cu_w(CU_DIM"Type expression. Operators: + - * / % ^ ( )");
+    cu_at(rows-1, 4);
+    cu_w(CU_FG"ENTER "CU_DIM"evaluate   "CU_FG"C "CU_DIM"clear   "CU_FG"ESC "CU_DIM"back to menu");
+
+    cu_at(by+1, bx + 8 + (int)strlen(expr));
+    cu_w("\x1b[?25h");
+    fflush(stdout);
+}
+
+static int b_calcui(Cmd *c) { (void)c;
+    struct termios old, raw;
+    tcgetattr(0,&old); raw=old;
+    raw.c_lflag &= ~(ICANON|ECHO);
+    raw.c_cc[VMIN]=1; raw.c_cc[VTIME]=0;
+    
+    tcsetattr(0,TCSANOW,&raw);
+
+    struct winsize ws; ioctl(0,TIOCGWINSZ,&ws);
+    int rows = ws.ws_row?ws.ws_row:24;
+    int cols = ws.ws_col?ws.ws_col:80;
+
+    cu_w("\x1b[2J");
+
+    char expr[200] = "";
+    char result[200] = "";
+    int  err = 0;
+
+    while (1) {
+        cu_draw(expr, result, err, rows, cols);
+        unsigned char k;
+        if (read(0,&k,1)<=0) continue;
+
+        if (k==27) {
+            
+            struct termios cur; tcgetattr(0,&cur);
+            struct termios tmp = cur;
+            tmp.c_cc[VMIN] = 0;
+            tmp.c_cc[VTIME] = 1; 
+            tcsetattr(0,TCSANOW,&tmp);
+            unsigned char seq[3]; int n=read(0,seq,3);
+            tcsetattr(0,TCSANOW,&cur);
+            if (n<=0) break;  
+            continue;          
+        }
+        if (k=='\r' || k=='\n') {
+            int e=0;
+            double v = calc_eval(expr, &e);
+            if (e) { strcpy(result, "error"); err=1; }
+            else { snprintf(result, sizeof(result), "%.10g", v); err=0; }
+            continue;
+        }
+        if (k==127 || k==8) {  
+            int l=strlen(expr); if (l>0) expr[l-1]=0;
+            continue;
+        }
+        if (k=='c' || k=='C') {
+            if (expr[0]==0 && result[0]) { result[0]=0; err=0; }
+            else { expr[0]=0; }
+            continue;
+        }
+        if (k=='q' || k=='Q') break;
+        
+        if (k>=32 && k<127 && strlen(expr)<sizeof(expr)-1) {
+            int l=strlen(expr); expr[l]=k; expr[l+1]=0;
+        }
+    }
+
+    cu_w("\x1b[0m\x1b[2J\x1b[H");
+    tcsetattr(0,TCSANOW,&old);
+    return 0;
+}

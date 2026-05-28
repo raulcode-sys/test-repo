@@ -131,7 +131,7 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
             snprintf(line, sizeof(line), " %s %-*s %10s ",
                      e->is_dir?"▶":" ", cols-20, e->name, sz);
             fx_w(line);
-            fx_w("\x1b[22m"); fx_w(TH_BG TH_FG);
+            fx_w("\x1b[22m"); fx_w(TH_BG); fx_w(TH_FG);
         } else {
             if (e->is_dir) fx_w(TH_FG); fx_w("\x1b[1m"); else fx_w(TH_DIM2);
             char line[512];

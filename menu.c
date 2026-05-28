@@ -247,7 +247,7 @@ static void mn_draw(int sel, int rows, int cols) {
             char line[64];
             snprintf(line,64,"  ▶ %-12s  %-22s", MNU[i].label, MNU[i].desc);
             mn_w(line);
-            mn_w("\x1b[22m"); mn_w(TH_BG TH_FG);
+            mn_w("\x1b[22m"); mn_w(TH_BG); mn_w(TH_FG);
         } else {
             mn_w(TH_FG);
             char line[64];

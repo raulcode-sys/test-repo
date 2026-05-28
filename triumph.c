@@ -715,11 +715,11 @@ static int b_reboot(Cmd *c){(void)c;
 #include "pongy.c"
 #include "chicken.c"
 #include "setup_persist.c"
+#include "fb.c"
+#include "theme.c"
 #include "calc_ui.c"
 #include "files.c"
-#include "fb.c"
 #include "web.c"
-#include "theme.c"
 #include "menu.c"
 #include "tools.c"
 

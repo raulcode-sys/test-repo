@@ -196,16 +196,16 @@ static int find_ethernet(char *ifname, size_t ifname_sz) {
 static void wb_show_diag(int rows, int cols) {
     wb_paint_bg(rows, cols);
     wb_at(2, (cols-20)/2);
-    wb_w(TH_YEL "\x1b[1m── DIAGNOSTICS ──\x1b[22m");
+    wb_w(TH_YEL); wb_w("\x1b[1m── DIAGNOSTICS ──\x1b[22m");
 
     int y = 4;
     DIR *d = opendir("/sys/class/net");
     if (!d) {
-        wb_at(y, 4); wb_w(TH_RED "Cannot open /sys/class/net");
+        wb_at(y, 4); wb_w(TH_RED); wb_w("Cannot open /sys/class/net");
     } else {
         struct dirent *e;
-        wb_at(y++, 4); wb_w(TH_FG "\x1b[1mInterface     Type     Carrier  Flags\x1b[22m");
-        wb_at(y++, 4); wb_w(TH_DIM "----------------------------------------");
+        wb_at(y++, 4); wb_w(TH_FG); wb_w("\x1b[1mInterface     Type     Carrier  Flags\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_DIM); wb_w("----------------------------------------");
         while ((e = readdir(d))) {
             if (e->d_name[0]=='.') continue;
             int wifi = iface_is_wireless(e->d_name);
@@ -241,16 +241,16 @@ static void wb_show_diag(int rows, int cols) {
         char ebuf[512] = {0};
         read(errfd, ebuf, sizeof(ebuf)-1);
         close(errfd);
-        wb_at(y++, 4); wb_w(TH_RED "\x1b[1mDriver error:\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_RED); wb_w("\x1b[1mDriver error:\x1b[22m");
         wb_at(y++, 4); wb_w(TH_RED); wb_w(ebuf);
         y++;
     } else {
-        wb_at(y++, 4); wb_w(TH_GRN "Driver loaded OK (no error file)");
+        wb_at(y++, 4); wb_w(TH_GRN); wb_w("Driver loaded OK (no error file)");
     }
 
     int kfd = open("/dev/kmsg", O_RDONLY|O_NONBLOCK);
     if (kfd >= 0) {
-        wb_at(y++, 4); wb_w(TH_YEL "\x1b[1mRecent kernel messages:\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_YEL); wb_w("\x1b[1mRecent kernel messages:\x1b[22m");
         char kbuf[8192]; int kn = read(kfd, kbuf, sizeof(kbuf)-1);
         close(kfd);
         if (kn > 0) {
@@ -281,7 +281,7 @@ static void wb_show_diag(int rows, int cols) {
     }
 
     wb_at(rows-1, 2);
-    wb_w(TH_DIM "Press any key to return"); wb_w(TH_FG);
+    wb_w(TH_DIM); wb_w("Press any key to return"); wb_w(TH_FG);
     fflush(stdout);
     unsigned char c; read(0, &c, 1);
 }
@@ -710,22 +710,22 @@ static void wb_show_no_internet(int rows, int cols) {
     int x;
 
     wb_at(y, (cols - 9)/2);
-    wb_w(TH_RED "\x1b[1m"); wb_w("┌───────┐"); wb_w("\x1b[22m");
+    wb_w(TH_RED); wb_w("\x1b[1m"); wb_w("┌───────┐"); wb_w("\x1b[22m");
     wb_at(y+1, (cols - 9)/2);
-    wb_w(TH_RED "\x1b[1m"); wb_w("│ "); wb_w(TH_YEL); wb_w(line1); wb_w(TH_RED); wb_w(" │"); wb_w("\x1b[22m");
+    wb_w(TH_RED); wb_w("\x1b[1m"); wb_w("│ "); wb_w(TH_YEL); wb_w(line1); wb_w(TH_RED); wb_w(" │"); wb_w("\x1b[22m");
     wb_at(y+2, (cols - 9)/2);
-    wb_w(TH_RED "\x1b[1m"); wb_w("└───────┘"); wb_w("\x1b[22m");
+    wb_w(TH_RED); wb_w("\x1b[1m"); wb_w("└───────┘"); wb_w("\x1b[22m");
 
     x = (cols - (int)strlen(line2)) / 2;
     wb_at(y+4, x);
-    wb_w(TH_FG "\x1b[1m"); wb_w(line2); wb_w("\x1b[22m");
+    wb_w(TH_FG); wb_w("\x1b[1m"); wb_w(line2); wb_w("\x1b[22m");
 
     x = (cols - (int)strlen(line3)) / 2;
     wb_at(y+5, x);
     wb_w(TH_DIM2); wb_w(line3);
 
     wb_at(y+8, (cols-32)/2);
-    wb_w(TH_FG); wb_w("D "); wb_w(TH_DIM "diagnose interfaces   "); wb_w(TH_FG); wb_w("any other key "); wb_w(TH_DIM "back");
+    wb_w(TH_FG); wb_w("D "); wb_w(TH_DIM); wb_w("diagnose interfaces   "); wb_w(TH_FG); wb_w("any other key "); wb_w(TH_DIM); wb_w("back");
     fflush(stdout);
 
     unsigned char c; read(0, &c, 1);
@@ -770,12 +770,12 @@ static void wb_url_input(char *url, size_t sz, int rows, int cols) {
     int x = (cols - boxw) / 2;
 
     wb_at(y-1, x);
-    wb_w(TH_FG "\x1b[1mEnter URL (e.g. http://example.com):\x1b[22m");
+    wb_w(TH_FG); wb_w("\x1b[1mEnter URL (e.g. http://example.com):\x1b[22m");
 
     wb_at(y, x);
-    wb_w(TH_FG "┌"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┐");
+    wb_w(TH_FG); wb_w("┌"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┐");
     wb_at(y+1, x);
-    wb_w(TH_FG "│ "); wb_w(TH_YEL);
+    wb_w(TH_FG); wb_w("│ "); wb_w(TH_YEL);
     char input[256] = "http://";
     int ilen = 7;
     
@@ -783,10 +783,10 @@ static void wb_url_input(char *url, size_t sz, int rows, int cols) {
     wb_w(pad);
     wb_at(y+1, x+boxw-1); wb_w(TH_FG); wb_w("│");
     wb_at(y+2, x);
-    wb_w(TH_FG "└"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┘");
+    wb_w(TH_FG); wb_w("└"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┘");
 
     wb_at(y+4, x);
-    wb_w(TH_DIM "Type URL, ↑↓ history, Enter to fetch, Esc to cancel");
+    wb_w(TH_DIM); wb_w("Type URL, ↑↓ history, Enter to fetch, Esc to cancel");
 
     wb_at(y+1, x + 2 + ilen);
     wb_w("\x1b[?25h");
@@ -914,7 +914,7 @@ static void render_text(const char *text, int rows, int cols) {
         }
 
         wb_at(rows - 1, 2);
-        wb_w(TH_DIM "↑↓/scroll navigate   ESC/Q back");
+        wb_w(TH_DIM); wb_w("↑↓/scroll navigate   ESC/Q back");
         fflush(stdout);
 
         int k = wb_readkey(1);
@@ -978,8 +978,8 @@ static int b_web(Cmd *c) { (void)c;
         wb_at(rows/2 - 1, (cols-30)/2);
         wb_w(TH_RED); wb_w("\x1b[1mDHCP failed — no IP address\x1b[22m");
         wb_at(rows/2 + 1, (cols-30)/2);
-        wb_w(TH_DIM "Check the cable and try again");
-        wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
+        wb_w(TH_DIM); wb_w("Check the cable and try again");
+        wb_at(rows-1, 2); wb_w(TH_FG); wb_w("Press any key");
         fflush(stdout);
         unsigned char c; read(0,&c,1);
         wb_w("\x1b[0m\x1b[2J\x1b[H\x1b[?25h");
@@ -1016,15 +1016,15 @@ static int b_web(Cmd *c) { (void)c;
         if (pr < 0 && pr != -2) {
             wb_at(rows/2-1, (cols-30)/2);
             wb_w(TH_RED); wb_w("\x1b[1mBad URL\x1b[22m");
-            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
+            wb_at(rows-1, 2); wb_w(TH_FG); wb_w("Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             continue;
         }
         if (host[0]==0) {
             wb_at(rows/2-1, (cols-20)/2);
-            wb_w(TH_RED "Bad URL");
-            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
+            wb_w(TH_RED); wb_w("Bad URL");
+            wb_at(rows-1, 2); wb_w(TH_FG); wb_w("Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             continue;
@@ -1045,8 +1045,8 @@ static int b_web(Cmd *c) { (void)c;
             wb_at(rows/2-1, (cols-30)/2);
             wb_w(TH_RED); wb_w("\x1b[1mFetch failed\x1b[22m");
             wb_at(rows/2+1, (cols-40)/2);
-            wb_w(TH_DIM "Could not connect or DNS failed");
-            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
+            wb_w(TH_DIM); wb_w("Could not connect or DNS failed");
+            wb_at(rows-1, 2); wb_w(TH_FG); wb_w("Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             free(page); free(text);

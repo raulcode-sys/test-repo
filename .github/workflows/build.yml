@@ -23,20 +23,11 @@ jobs:
         run: |
           KVER=$(uname -r)
           echo "Kernel version: $KVER"
-
-          # copy entire modules directory to be safe
-          sudo mkdir -p initramfs/lib/modules
+          mkdir -p initramfs/lib/modules
           sudo cp -r /lib/modules/$KVER initramfs/lib/modules/
-
-          # copy firmware
-          sudo mkdir -p initramfs/lib/firmware
+          mkdir -p initramfs/lib/firmware
           sudo cp -r /lib/firmware/* initramfs/lib/firmware/ 2>/dev/null || true
-
-          # verify ipheth exists
-          find initramfs/lib/modules -name "ipheth*" -o -name "cdc_ether*" -o -name "usbnet*" -o -name "rndis*" | head -20
-          echo "---"
-          find initramfs/lib/modules -name "*.ko" | wc -l
-          echo "total .ko files copied"
+          sudo chown -R $(whoami) initramfs/
 
       - name: Patch init.c module paths
         run: |

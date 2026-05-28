@@ -20,17 +20,9 @@
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/debug.h>
 
-#define WB_BG  "\x1b[48;5;17m"
-#define WB_FG  "\x1b[38;5;51m"
-#define WB_HI  "\x1b[48;5;51m\x1b[38;5;17m"
-#define WB_DIM "\x1b[38;5;33m"
-#define WB_DIM2 "\x1b[38;5;67m"
-#define WB_YEL "\x1b[38;5;226m"
-#define WB_GRN "\x1b[38;5;82m"
-#define WB_RED "\x1b[38;5;196m"
 
-#define WB_HIST_MAX 16
-static char wb_history[WB_HIST_MAX][256];
+#define TH_HIST_MAX 16
+static char wb_history[TH_HIST_MAX][256];
 static int  wb_history_n = 0;
 
 static void wb_history_load(void) {
@@ -41,7 +33,7 @@ static void wb_history_load(void) {
     if (n <= 0) return;
     buf[n] = 0;
     char *p = buf;
-    while (*p && wb_history_n < WB_HIST_MAX) {
+    while (*p && wb_history_n < TH_HIST_MAX) {
         char *eol = strchr(p, '\n');
         if (eol) *eol = 0;
         if (*p) {
@@ -65,7 +57,7 @@ static void wb_history_add(const char *url) {
             goto save;
         }
     }
-    if (wb_history_n < WB_HIST_MAX) wb_history_n++;
+    if (wb_history_n < TH_HIST_MAX) wb_history_n++;
     for (int j = wb_history_n - 1; j > 0; j--)
         strcpy(wb_history[j], wb_history[j-1]);
     strncpy(wb_history[0], url, 255);
@@ -102,7 +94,7 @@ static int wb_load_module(const char *path, char *err, size_t errsz) {
 static void wb_w(const char *s) { write(1, s, strlen(s)); }
 static void wb_at(int r, int c) { char b[24]; snprintf(b,24,"\x1b[%d;%dH",r,c); wb_w(b); }
 static void wb_paint_bg(int rows, int cols) {
-    wb_w(WB_BG);
+    wb_w(TH_BG);
     wb_at(1,1);
     for(int r=0;r<rows;r++){for(int c=0;c<cols;c++)wb_w(" ");if(r<rows-1)wb_w("\r\n");}
 }
@@ -204,16 +196,16 @@ static int find_ethernet(char *ifname, size_t ifname_sz) {
 static void wb_show_diag(int rows, int cols) {
     wb_paint_bg(rows, cols);
     wb_at(2, (cols-20)/2);
-    wb_w(WB_YEL "\x1b[1m── DIAGNOSTICS ──\x1b[22m");
+    wb_w(TH_YEL "\x1b[1m── DIAGNOSTICS ──\x1b[22m");
 
     int y = 4;
     DIR *d = opendir("/sys/class/net");
     if (!d) {
-        wb_at(y, 4); wb_w(WB_RED "Cannot open /sys/class/net");
+        wb_at(y, 4); wb_w(TH_RED "Cannot open /sys/class/net");
     } else {
         struct dirent *e;
-        wb_at(y++, 4); wb_w(WB_FG "\x1b[1mInterface     Type     Carrier  Flags\x1b[22m");
-        wb_at(y++, 4); wb_w(WB_DIM "----------------------------------------");
+        wb_at(y++, 4); wb_w(TH_FG "\x1b[1mInterface     Type     Carrier  Flags\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_DIM "----------------------------------------");
         while ((e = readdir(d))) {
             if (e->d_name[0]=='.') continue;
             int wifi = iface_is_wireless(e->d_name);
@@ -235,7 +227,7 @@ static void wb_show_diag(int rows, int cols) {
                      strcmp(e->d_name,"lo")==0?"loop":(wifi?"wifi":"wired"),
                      car?"YES":"no",
                      up?"UP":"DOWN");
-            if (car) wb_w(WB_GRN); else if (wifi) wb_w(WB_DIM2); else wb_w(WB_FG);
+            if (car) wb_w(TH_GRN); else if (wifi) wb_w(TH_DIM2); else wb_w(TH_FG);
             wb_w(line);
             y++;
             if (y >= rows-3) break;
@@ -249,16 +241,16 @@ static void wb_show_diag(int rows, int cols) {
         char ebuf[512] = {0};
         read(errfd, ebuf, sizeof(ebuf)-1);
         close(errfd);
-        wb_at(y++, 4); wb_w(WB_RED "\x1b[1mDriver error:\x1b[22m");
-        wb_at(y++, 4); wb_w(WB_RED); wb_w(ebuf);
+        wb_at(y++, 4); wb_w(TH_RED "\x1b[1mDriver error:\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_RED); wb_w(ebuf);
         y++;
     } else {
-        wb_at(y++, 4); wb_w(WB_GRN "Driver loaded OK (no error file)");
+        wb_at(y++, 4); wb_w(TH_GRN "Driver loaded OK (no error file)");
     }
 
     int kfd = open("/dev/kmsg", O_RDONLY|O_NONBLOCK);
     if (kfd >= 0) {
-        wb_at(y++, 4); wb_w(WB_YEL "\x1b[1mRecent kernel messages:\x1b[22m");
+        wb_at(y++, 4); wb_w(TH_YEL "\x1b[1mRecent kernel messages:\x1b[22m");
         char kbuf[8192]; int kn = read(kfd, kbuf, sizeof(kbuf)-1);
         close(kfd);
         if (kn > 0) {
@@ -276,7 +268,7 @@ static void wb_show_diag(int rows, int cols) {
                     char *body = strchr(p, ';');
                     if (body) body++;
                     else body = p;
-                    wb_at(y++, 4); wb_w(WB_DIM2);
+                    wb_at(y++, 4); wb_w(TH_DIM2);
                     
                     int max = cols - 6;
                     if ((int)strlen(body) > max) body[max] = 0;
@@ -289,7 +281,7 @@ static void wb_show_diag(int rows, int cols) {
     }
 
     wb_at(rows-1, 2);
-    wb_w(WB_DIM "Press any key to return"WB_FG);
+    wb_w(TH_DIM "Press any key to return"); wb_w(TH_FG);
     fflush(stdout);
     unsigned char c; read(0, &c, 1);
 }
@@ -718,22 +710,22 @@ static void wb_show_no_internet(int rows, int cols) {
     int x;
 
     wb_at(y, (cols - 9)/2);
-    wb_w(WB_RED "\x1b[1m"); wb_w("┌───────┐"); wb_w("\x1b[22m");
+    wb_w(TH_RED "\x1b[1m"); wb_w("┌───────┐"); wb_w("\x1b[22m");
     wb_at(y+1, (cols - 9)/2);
-    wb_w(WB_RED "\x1b[1m"); wb_w("│ "); wb_w(WB_YEL); wb_w(line1); wb_w(WB_RED" │"); wb_w("\x1b[22m");
+    wb_w(TH_RED "\x1b[1m"); wb_w("│ "); wb_w(TH_YEL); wb_w(line1); wb_w(TH_RED); wb_w(" │"); wb_w("\x1b[22m");
     wb_at(y+2, (cols - 9)/2);
-    wb_w(WB_RED "\x1b[1m"); wb_w("└───────┘"); wb_w("\x1b[22m");
+    wb_w(TH_RED "\x1b[1m"); wb_w("└───────┘"); wb_w("\x1b[22m");
 
     x = (cols - (int)strlen(line2)) / 2;
     wb_at(y+4, x);
-    wb_w(WB_FG "\x1b[1m"); wb_w(line2); wb_w("\x1b[22m");
+    wb_w(TH_FG "\x1b[1m"); wb_w(line2); wb_w("\x1b[22m");
 
     x = (cols - (int)strlen(line3)) / 2;
     wb_at(y+5, x);
-    wb_w(WB_DIM2); wb_w(line3);
+    wb_w(TH_DIM2); wb_w(line3);
 
     wb_at(y+8, (cols-32)/2);
-    wb_w(WB_FG"D "WB_DIM "diagnose interfaces   "WB_FG"any other key "WB_DIM "back");
+    wb_w(TH_FG); wb_w("D "); wb_w(TH_DIM "diagnose interfaces   "); wb_w(TH_FG); wb_w("any other key "); wb_w(TH_DIM "back");
     fflush(stdout);
 
     unsigned char c; read(0, &c, 1);
@@ -778,23 +770,23 @@ static void wb_url_input(char *url, size_t sz, int rows, int cols) {
     int x = (cols - boxw) / 2;
 
     wb_at(y-1, x);
-    wb_w(WB_FG "\x1b[1mEnter URL (e.g. http://example.com):\x1b[22m");
+    wb_w(TH_FG "\x1b[1mEnter URL (e.g. http://example.com):\x1b[22m");
 
     wb_at(y, x);
-    wb_w(WB_FG "┌"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┐");
+    wb_w(TH_FG "┌"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┐");
     wb_at(y+1, x);
-    wb_w(WB_FG "│ "); wb_w(WB_YEL);
+    wb_w(TH_FG "│ "); wb_w(TH_YEL);
     char input[256] = "http://";
     int ilen = 7;
     
     char pad[80]; snprintf(pad,sizeof(pad),"%-*s", boxw-4, input);
     wb_w(pad);
-    wb_at(y+1, x+boxw-1); wb_w(WB_FG"│");
+    wb_at(y+1, x+boxw-1); wb_w(TH_FG); wb_w("│");
     wb_at(y+2, x);
-    wb_w(WB_FG "└"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┘");
+    wb_w(TH_FG "└"); for(int i=0;i<boxw-2;i++) wb_w("─"); wb_w("┘");
 
     wb_at(y+4, x);
-    wb_w(WB_DIM "Type URL, ↑↓ history, Enter to fetch, Esc to cancel");
+    wb_w(TH_DIM "Type URL, ↑↓ history, Enter to fetch, Esc to cancel");
 
     wb_at(y+1, x + 2 + ilen);
     wb_w("\x1b[?25h");
@@ -832,7 +824,7 @@ static void wb_url_input(char *url, size_t sz, int rows, int cols) {
             hist_idx = -1;
         }
         wb_at(y+1, x+2);
-        wb_w(WB_YEL);
+        wb_w(TH_YEL);
         char pad2[80]; snprintf(pad2,sizeof(pad2),"%-*s", boxw-4, input);
         wb_w(pad2);
         wb_at(y+1, x + 2 + ilen);
@@ -906,14 +898,14 @@ static void render_text(const char *text, int rows, int cols) {
     while (1) {
         wb_paint_bg(rows, cols);
         wb_at(1, 2);
-        wb_w(WB_YEL"\x1b[1m── PAGE ──\x1b[22m");
+        wb_w(TH_YEL); wb_w("\x1b[1m── PAGE ──\x1b[22m");
 
         char scrollinfo[64];
         snprintf(scrollinfo, sizeof(scrollinfo), "Line %d/%d", scroll+1, nlines);
         wb_at(1, cols - (int)strlen(scrollinfo) - 2);
-        wb_w(WB_DIM); wb_w(scrollinfo);
+        wb_w(TH_DIM); wb_w(scrollinfo);
 
-        wb_w(WB_FG);
+        wb_w(TH_FG);
         for (int i = 0; i < page_h && scroll + i < nlines; i++) {
             wb_at(3 + i, margin);
             char pad[512];
@@ -922,7 +914,7 @@ static void render_text(const char *text, int rows, int cols) {
         }
 
         wb_at(rows - 1, 2);
-        wb_w(WB_DIM "↑↓/scroll navigate   ESC/Q back");
+        wb_w(TH_DIM "↑↓/scroll navigate   ESC/Q back");
         fflush(stdout);
 
         int k = wb_readkey(1);
@@ -964,7 +956,7 @@ static int b_web(Cmd *c) { (void)c;
 
     wb_paint_bg(rows, cols);
     wb_at(rows/2 - 1, (cols-30)/2);
-    wb_w(WB_FG"\x1b[1mConnecting via "WB_YEL); wb_w(ifname); wb_w(WB_FG"...\x1b[22m");
+    wb_w(TH_FG); wb_w("\x1b[1mConnecting via "); wb_w(TH_YEL); wb_w(ifname); wb_w(TH_FG); wb_w("...\x1b[22m");
     fflush(stdout);
 
     {
@@ -984,10 +976,10 @@ static int b_web(Cmd *c) { (void)c;
     if (dhcp_get(ifname, &ip, &gw, &dns) < 0) {
         wb_paint_bg(rows, cols);
         wb_at(rows/2 - 1, (cols-30)/2);
-        wb_w(WB_RED"\x1b[1mDHCP failed — no IP address\x1b[22m");
+        wb_w(TH_RED); wb_w("\x1b[1mDHCP failed — no IP address\x1b[22m");
         wb_at(rows/2 + 1, (cols-30)/2);
-        wb_w(WB_DIM "Check the cable and try again");
-        wb_at(rows-1, 2); wb_w(WB_FG "Press any key");
+        wb_w(TH_DIM "Check the cable and try again");
+        wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
         fflush(stdout);
         unsigned char c; read(0,&c,1);
         wb_w("\x1b[0m\x1b[2J\x1b[H\x1b[?25h");
@@ -1002,14 +994,14 @@ static int b_web(Cmd *c) { (void)c;
     char ipstr[64]; struct in_addr a; a.s_addr = ip;
     snprintf(ipstr, sizeof(ipstr), "Connected: IP %s", inet_ntoa(a));
     wb_at(rows/2 - 1, (cols-(int)strlen(ipstr))/2);
-    wb_w(WB_GRN"\x1b[1m"); wb_w(ipstr); wb_w("\x1b[22m");
+    wb_w(TH_GRN); wb_w("\x1b[1m"); wb_w(ipstr); wb_w("\x1b[22m");
     fflush(stdout);
     sleep(1);
 
     while (1) {
         wb_paint_bg(rows, cols);
         wb_at(2, (cols-12)/2);
-        wb_w(WB_YEL"\x1b[1m── WEB ──\x1b[22m");
+        wb_w(TH_YEL); wb_w("\x1b[1m── WEB ──\x1b[22m");
 
         char url[256];
         wb_url_input(url, sizeof(url), rows, cols);
@@ -1023,23 +1015,23 @@ static int b_web(Cmd *c) { (void)c;
         wb_paint_bg(rows, cols);
         if (pr < 0 && pr != -2) {
             wb_at(rows/2-1, (cols-30)/2);
-            wb_w(WB_RED"\x1b[1mBad URL\x1b[22m");
-            wb_at(rows-1, 2); wb_w(WB_FG "Press any key");
+            wb_w(TH_RED); wb_w("\x1b[1mBad URL\x1b[22m");
+            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             continue;
         }
         if (host[0]==0) {
             wb_at(rows/2-1, (cols-20)/2);
-            wb_w(WB_RED "Bad URL");
-            wb_at(rows-1, 2); wb_w(WB_FG "Press any key");
+            wb_w(TH_RED "Bad URL");
+            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             continue;
         }
 
         wb_at(rows/2, (cols-20)/2);
-        wb_w(WB_FG"Fetching "); wb_w(WB_YEL); wb_w(host); wb_w("...");
+        wb_w(TH_FG); wb_w("Fetching "); wb_w(TH_YEL); wb_w(host); wb_w("...");
         fflush(stdout);
 
         char *page = malloc(256*1024);
@@ -1051,10 +1043,10 @@ static int b_web(Cmd *c) { (void)c;
         if (n <= 0) {
             wb_paint_bg(rows, cols);
             wb_at(rows/2-1, (cols-30)/2);
-            wb_w(WB_RED"\x1b[1mFetch failed\x1b[22m");
+            wb_w(TH_RED); wb_w("\x1b[1mFetch failed\x1b[22m");
             wb_at(rows/2+1, (cols-40)/2);
-            wb_w(WB_DIM "Could not connect or DNS failed");
-            wb_at(rows-1, 2); wb_w(WB_FG "Press any key");
+            wb_w(TH_DIM "Could not connect or DNS failed");
+            wb_at(rows-1, 2); wb_w(TH_FG "Press any key");
             fflush(stdout);
             unsigned char c; read(0,&c,1);
             free(page); free(text);

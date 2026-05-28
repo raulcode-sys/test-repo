@@ -1,6 +1,3 @@
-
-
-
 typedef struct {
     char  name[256];
     int   is_dir;
@@ -133,7 +130,7 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
             fx_w(line);
             fx_w("\x1b[22m"); fx_w(TH_BG); fx_w(TH_FG);
         } else {
-            if (e->is_dir) fx_w(TH_FG); fx_w("\x1b[1m"); else fx_w(TH_DIM2);
+            if (e->is_dir) { fx_w(TH_FG); fx_w("\x1b[1m"); } else fx_w(TH_DIM2);
             char line[512];
             char sz[24];
             if (e->is_dir) snprintf(sz, sizeof(sz), "<DIR>");

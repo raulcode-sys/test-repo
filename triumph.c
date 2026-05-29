@@ -929,8 +929,6 @@ int main(int argc,char *argv[]){
         }
         hist_add(line);
         run_line(line);}
-        hist_add(line);
-        run_line(line);}
     if(getpid()==1){
         system("reboot -f 2>/dev/null");
         for(;;)pause();}

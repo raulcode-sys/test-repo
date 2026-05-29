@@ -973,16 +973,18 @@ int main(int argc,char *argv[]){
         system("mount -t tmpfs  tmp  /tmp  2>/dev/null");}
     /* boot straight to wallpaper — no login, no menu, no banner */
     theme_init();
-    fb_startup();
 
-    /* idle loop — raw key read on wallpaper, no prompt */
+    /* set raw mode BEFORE anything else — no echo, no line buffering */
     struct termios wo, wr;
     tcgetattr(0,&wo); wr=wo;
-    wr.c_lflag &= ~(ICANON|ECHO);
+    wr.c_lflag &= ~(ICANON|ECHO|ISIG);
     wr.c_cc[VMIN]=1; wr.c_cc[VTIME]=0;
+    tcsetattr(0,TCSAFLUSH,&wr);
 
+    fb_startup();
+
+    /* idle loop — only Shift+M and Shift+T do anything */
     while(running){
-        tcsetattr(0,TCSANOW,&wr);
         unsigned char c;
         if(read(0,&c,1)<=0) break;
 
@@ -993,7 +995,7 @@ int main(int argc,char *argv[]){
                 if(c2=='M'){
                     tcsetattr(0,TCSANOW,&wo);
                     fb_toggle_menu();
-                    if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
+                    if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); } tcsetattr(0,TCSAFLUSH,&wr);
                 }
                 if(c2=='T'){
                     tcsetattr(0,TCSANOW,&wo);
@@ -1010,6 +1012,7 @@ int main(int argc,char *argv[]){
                             run_line(tline);
                         }
                         fb_term_post();
+                        tcsetattr(0,TCSAFLUSH,&wr);
                     }
                 }
             }
@@ -1020,7 +1023,7 @@ int main(int argc,char *argv[]){
         if(c=='M'){
             tcsetattr(0,TCSANOW,&wo);
             fb_toggle_menu();
-            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
+            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); } tcsetattr(0,TCSAFLUSH,&wr);
             continue;
         }
         /* Shift+T from built-in keyboard */
@@ -1039,6 +1042,7 @@ int main(int argc,char *argv[]){
                     run_line(tline);
                 }
                 fb_term_post();
+                tcsetattr(0,TCSAFLUSH,&wr);
             }
             continue;
         }

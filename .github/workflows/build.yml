@@ -29,11 +29,6 @@ jobs:
           sudo cp -r /lib/firmware/* initramfs/lib/firmware/ 2>/dev/null || true
           sudo chown -R $(whoami) initramfs/
 
-      - name: Patch init.c module paths
-        run: |
-          KVER=$(uname -r)
-          sed -i "s/6.8.0-111-generic/$KVER/g" init.c
-
       - name: Build
         run: make iso
 

@@ -1,5 +1,4 @@
 #include <sys/statfs.h>
-#include <sys/mman.h>
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -21,20 +20,19 @@
 #include <pwd.h>
 #include <grp.h>
 #include <glob.h>
-
-#define SH_MAX_INPUT 4096
-#define MAX_ARGS     256
-#define SH_VERSION   "1.0.0"
-#define MAX_TOKENS   512
-#define MAX_PIPES    16
-#define MAX_HISTORY  500
-#define MAX_ALIASES  64
-
-/* wallpaper pixel data - no dependencies */
-#include "wallpaper.h"
 #include <ctype.h>
+
+#include "wallpaper.h"
 #include <stdarg.h>
 
+#define SH_VERSION  "1.0.0"
+
+#define SH_MAX_INPUT 4096
+#define MAX_TOKENS  512
+#define MAX_ARGS    256
+#define MAX_PIPES   16
+#define MAX_HISTORY 500
+#define MAX_ALIASES 64
 
 #define RST "\x1b[0m"
 #define BLD "\x1b[1m"
@@ -176,14 +174,6 @@ static int triumph_readline(char *buf,int maxlen){
     while(1){
         unsigned char c;
         if(read(STDIN_FILENO,&c,1)<=0){term_restore();return -1;}
-        /* sentinel from external keyboard thread or internal Shift+M/T */
-        if(c==0x01){
-            unsigned char c2;
-            if(read(STDIN_FILENO,&c2,1)>0){
-                buf[0]=0x01; buf[1]=c2; buf[2]=0;
-                term_restore(); return 2;
-            }
-        }
         if(c=='\r'||c=='\n'){term_restore();buf[len]='\0';write(1,"\r\n",2);return len;}
         if(c==3){term_restore();write(1,"^C\r\n",4);buf[0]='\0';return 0;}
         if(c==4&&len==0){term_restore();return -1;}
@@ -220,7 +210,6 @@ static int triumph_readline(char *buf,int maxlen){
                     write(1,"\x1b[P",3);write(1,buf+pos,len-pos);
                     if(len-pos){char mv[16];snprintf(mv,16,"\x1b[%dD",len-pos);write(1,mv,strlen(mv));}}}
         } else if(c>=32&&c<127){
-            /* Shift+M / Shift+T when buffer is empty = toggle overlays */
             if (c == 'M' && len == 0) { buf[0]='\x01'; buf[1]='M'; buf[2]=0; term_restore(); return 2; }
             if (c == 'T' && len == 0) { buf[0]='\x01'; buf[1]='T'; buf[2]=0; term_restore(); return 2; }
             if(len<maxlen-1){
@@ -626,74 +615,6 @@ static int b_help(Cmd *c){(void)c;
 #include <sys/reboot.h>
 #include "beep.c"
 #include "audio.c"
-static int b_tether(Cmd *c){(void)c;
-    printf(BLD CYN"Triumph OS — USB Tethering\n"RST);
-    printf(GRY"Looking for tethered devices...\n"RST);
-
-    /* try to find a USB network interface */
-    const char *ifaces[] = {"eth1","eth2","usb0","enp0s*","ipheth0",NULL};
-    char found[32] = "";
-
-    /* scan /sys/class/net for any USB-backed interface */
-    DIR *d = opendir("/sys/class/net");
-    if (d) {
-        struct dirent *e;
-        while ((e = readdir(d))) {
-            if (e->d_name[0]=='.') continue;
-            if (strcmp(e->d_name,"lo")==0) continue;
-            if (strcmp(e->d_name,"eth0")==0) continue; /* skip main ethernet */
-            char path[256];
-            snprintf(path,sizeof(path),"/sys/class/net/%s/device/uevent",e->d_name);
-            int fd=open(path,O_RDONLY);
-            if (fd>=0) {
-                char buf[512]={0}; read(fd,buf,sizeof(buf)-1); close(fd);
-                if (strstr(buf,"usb")||strstr(buf,"USB")||strstr(buf,"ipheth")) {
-                    strncpy(found,e->d_name,sizeof(found)-1);
-                    break;
-                }
-            }
-            /* also just try any non-eth0 interface */
-            if (!found[0]) strncpy(found,e->d_name,sizeof(found)-1);
-        }
-        closedir(d);
-    }
-
-    if (!found[0]) {
-        printf(RED"No USB network device found.\n"RST);
-        printf(GRY"Make sure your phone is plugged in with a data cable\n");
-        printf("and USB tethering / Personal Hotspot is enabled.\n"RST);
-        return 1;
-    }
-
-    printf(GRN"Found: %s\n"RST, found);
-    printf(CYN"Bringing up interface...\n"RST);
-
-    char cmd[128];
-    snprintf(cmd,sizeof(cmd),"ip link set %s up 2>/dev/null || ifconfig %s up 2>/dev/null",found,found);
-    system(cmd);
-
-    printf(CYN"Running DHCP...\n"RST);
-    /* try built-in dhcp via the web module, or udhcpc if available */
-    snprintf(cmd,sizeof(cmd),"udhcpc -i %s -n -q 2>/dev/null",found);
-    int rc = system(cmd);
-
-    if (rc != 0) {
-        /* manual fallback — try a common subnet */
-        snprintf(cmd,sizeof(cmd),"ip addr add 172.20.10.2/28 dev %s 2>/dev/null || ifconfig %s 172.20.10.2 netmask 255.255.255.240 2>/dev/null",found,found);
-        system(cmd);
-        snprintf(cmd,sizeof(cmd),"ip route add default via 172.20.10.1 dev %s 2>/dev/null || route add default gw 172.20.10.1 %s 2>/dev/null",found,found);
-        system(cmd);
-        /* set DNS */
-        int fd=open("/etc/resolv.conf",O_WRONLY|O_CREAT|O_TRUNC,0644);
-        if(fd>=0){write(fd,"nameserver 8.8.8.8\n",19);close(fd);}
-        printf(YLW"DHCP failed — set manual IP 172.20.10.2 (iPhone default)\n"RST);
-    }
-
-    printf(GRN BLD"Tethering active on %s!\n"RST, found);
-    printf(GRY"Try: web google.com\n"RST);
-    return 0;
-}
-
 static int b_poweroff(Cmd *c){(void)c;
     pc_play(SND_SHUTDOWN);
     sync();
@@ -714,12 +635,13 @@ static int b_reboot(Cmd *c){(void)c;
 #include "tetris.c"
 #include "pongy.c"
 #include "chicken.c"
+#include "login.c"
 #include "setup_persist.c"
-#include "fb.c"
-#include "theme.c"
 #include "calc_ui.c"
 #include "files.c"
 #include "web.c"
+#include "fb.c"
+#include "theme.c"
 #include "menu.c"
 #include "tools.c"
 
@@ -759,7 +681,7 @@ typedef struct{const char *n;BFn fn;}BE;
 static BE btab[]={
     {"[",b_test},{"alias",b_alias},{"cat",b_cat},{"cd",b_cd},{"chmod",b_chmod},
     {"clear",b_clear},{"cp",b_cp},{"date",b_date},{"df",b_df},{"du",b_du},
-    {"echo",b_echo},{"edit",b_edit},{"nano",b_edit},{"vi",b_edit},{"snake",b_snake},{"tetris",b_tetris},{"pongy",b_pongy},{"chicken",b_chicken},{"menu",b_menu},{"setup-persist",b_setup_persist},{"files",b_files},{"web",b_web},{"clr",b_clr},{"calc",b_calc},{"figlet",b_figlet},{"ascii",b_figlet},{"tether",b_tether},{"theme",b_theme},{"settings",b_settings},{"poweroff",b_poweroff},{"shutdown",b_poweroff},{"reboot",b_reboot},
+    {"echo",b_echo},{"edit",b_edit},{"nano",b_edit},{"vi",b_edit},{"snake",b_snake},{"tetris",b_tetris},{"pongy",b_pongy},{"chicken",b_chicken},{"menu",b_menu},{"logout",b_logout},{"setup-persist",b_setup_persist},{"files",b_files},{"web",b_web},{"clr",b_clr},{"calc",b_calc},{"figlet",b_figlet},{"ascii",b_figlet},{"theme",b_theme},{"settings",b_settings},{"poweroff",b_poweroff},{"shutdown",b_poweroff},{"reboot",b_reboot},
     {"env",b_env},{"false",b_false},{"fetch",b_fetch},{"file",b_file},
     {"find",b_find},{"free",b_free},{"grep",b_grep},{"head",b_head},{"help",b_help},
     {"history",b_history},{"hostname",b_hostname},{"id",b_id},{"kill",b_kill},
@@ -962,96 +884,54 @@ int main(int argc,char *argv[]){
         return b_source(&dummy);}
     signals_init();
     setup_defaults();
-    setenv("USER","root",1);
-    setenv("HOME","/root",1);
-    chdir("/root");
 
     if(getpid()==1){
         system("mount -t proc  proc  /proc 2>/dev/null");
         system("mount -t sysfs sys   /sys  2>/dev/null");
         system("mount -t devtmpfs dev /dev  2>/dev/null");
         system("mount -t tmpfs  tmp  /tmp  2>/dev/null");}
-    /* boot straight to wallpaper — no login, no menu, no banner */
+
     theme_init();
-
-    /* set raw mode BEFORE anything else — no echo, no line buffering */
-    struct termios wo, wr;
-    tcgetattr(0,&wo); wr=wo;
-    wr.c_lflag &= ~(ICANON|ECHO|ISIG);
-    wr.c_cc[VMIN]=1; wr.c_cc[VTIME]=0;
-    tcsetattr(0,TCSAFLUSH,&wr);
-
     fb_startup();
 
-    /* idle loop — only Shift+M and Shift+T do anything */
+    /* boot into menu first */
+    { Cmd dc={0}; b_menu(&dc); }
+    show_wallpaper();
+
+    /* idle on wallpaper — Shift+M/T only */
+    char line[SH_MAX_INPUT];
     while(running){
-        unsigned char c;
-        if(read(0,&c,1)<=0) break;
-
-        /* sentinel from external keyboard */
-        if(c==0x01){
-            unsigned char c2;
-            if(read(0,&c2,1)>0){
-                if(c2=='M'){
-                    tcsetattr(0,TCSANOW,&wo);
-                    fb_toggle_menu();
-                    if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); } tcsetattr(0,TCSAFLUSH,&wr);
-                }
-                if(c2=='T'){
-                    tcsetattr(0,TCSANOW,&wo);
-                    fb_toggle_term();
-                    if(term_open){
-                        char tline[SH_MAX_INPUT];
-                        while(running){
-                            print_prompt();
-                            int tn=triumph_readline(tline,SH_MAX_INPUT);
-                            if(tn<0) break;
-                            if(tn==0) continue;
-                            if(tn==2&&tline[0]=='\x01'&&tline[1]=='T') break;
-                            hist_add(tline);
-                            run_line(tline);
-                        }
-                        fb_term_post();
-                        tcsetattr(0,TCSAFLUSH,&wr);
-                    }
-                }
-            }
-            continue;
-        }
-
-        /* Shift+M from built-in keyboard */
-        if(c=='M'){
-            tcsetattr(0,TCSANOW,&wo);
+        print_prompt();
+        int n=triumph_readline(line,SH_MAX_INPUT);
+        if(n<0){printf("\n"BLD CYN"logout"RST"\n");break;}
+        if(n==0)continue;
+        if(n==2 && line[0]=='\x01' && line[1]=='M'){
             fb_toggle_menu();
-            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); } tcsetattr(0,TCSAFLUSH,&wr);
+            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
             continue;
         }
-        /* Shift+T from built-in keyboard */
-        if(c=='T'){
-            tcsetattr(0,TCSANOW,&wo);
+        if(n==2 && line[0]=='\x01' && line[1]=='T'){
             fb_toggle_term();
             if(term_open){
-                char tline[SH_MAX_INPUT];
+                char tl[SH_MAX_INPUT];
                 while(running){
                     print_prompt();
-                    int tn=triumph_readline(tline,SH_MAX_INPUT);
+                    int tn=triumph_readline(tl,SH_MAX_INPUT);
                     if(tn<0) break;
                     if(tn==0) continue;
-                    if(tn==2&&tline[0]=='\x01'&&tline[1]=='T') break;
-                    hist_add(tline);
-                    run_line(tline);
+                    if(tn==2&&tl[0]=='\x01'&&tl[1]=='T') break;
+                    hist_add(tl);
+                    run_line(tl);
                 }
                 fb_term_post();
-                tcsetattr(0,TCSAFLUSH,&wr);
             }
             continue;
         }
-        /* ignore all other keys on wallpaper */
-    }
-
-    tcsetattr(0,TCSANOW,&wo);
+        hist_add(line);
+        run_line(line);}
+        hist_add(line);
+        run_line(line);}
     if(getpid()==1){
-        fb_shutdown();
         system("reboot -f 2>/dev/null");
         for(;;)pause();}
     return last_exit;}

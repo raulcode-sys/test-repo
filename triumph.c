@@ -975,20 +975,57 @@ int main(int argc,char *argv[]){
     theme_init();
     fb_startup();
 
-    /* main loop */
-    char line[SH_MAX_INPUT];
+    /* idle loop — raw key read on wallpaper, no prompt */
+    struct termios wo, wr;
+    tcgetattr(0,&wo); wr=wo;
+    wr.c_lflag &= ~(ICANON|ECHO);
+    wr.c_cc[VMIN]=1; wr.c_cc[VTIME]=0;
+
     while(running){
-        int n=triumph_readline(line,SH_MAX_INPUT);
-        if(n<0) break;
-        if(n==0) continue;
-        /* Shift+M */
-        if(n==2 && line[0]=='\x01' && line[1]=='M'){
+        tcsetattr(0,TCSANOW,&wr);
+        unsigned char c;
+        if(read(0,&c,1)<=0) break;
+
+        /* sentinel from external keyboard */
+        if(c==0x01){
+            unsigned char c2;
+            if(read(0,&c2,1)>0){
+                if(c2=='M'){
+                    tcsetattr(0,TCSANOW,&wo);
+                    fb_toggle_menu();
+                    if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
+                }
+                if(c2=='T'){
+                    tcsetattr(0,TCSANOW,&wo);
+                    fb_toggle_term();
+                    if(term_open){
+                        char tline[SH_MAX_INPUT];
+                        while(running){
+                            print_prompt();
+                            int tn=triumph_readline(tline,SH_MAX_INPUT);
+                            if(tn<0) break;
+                            if(tn==0) continue;
+                            if(tn==2&&tline[0]=='\x01'&&tline[1]=='T') break;
+                            hist_add(tline);
+                            run_line(tline);
+                        }
+                        fb_term_post();
+                    }
+                }
+            }
+            continue;
+        }
+
+        /* Shift+M from built-in keyboard */
+        if(c=='M'){
+            tcsetattr(0,TCSANOW,&wo);
             fb_toggle_menu();
             if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
             continue;
         }
-        /* Shift+T */
-        if(n==2 && line[0]=='\x01' && line[1]=='T'){
+        /* Shift+T from built-in keyboard */
+        if(c=='T'){
+            tcsetattr(0,TCSANOW,&wo);
             fb_toggle_term();
             if(term_open){
                 char tline[SH_MAX_INPUT];
@@ -997,7 +1034,7 @@ int main(int argc,char *argv[]){
                     int tn=triumph_readline(tline,SH_MAX_INPUT);
                     if(tn<0) break;
                     if(tn==0) continue;
-                    if(tline[0]=='\x01'&&tline[1]=='T') break;
+                    if(tn==2&&tline[0]=='\x01'&&tline[1]=='T') break;
                     hist_add(tline);
                     run_line(tline);
                 }
@@ -1005,8 +1042,10 @@ int main(int argc,char *argv[]){
             }
             continue;
         }
-        hist_add(line);
-        run_line(line);}
+        /* ignore all other keys on wallpaper */
+    }
+
+    tcsetattr(0,TCSANOW,&wo);
     if(getpid()==1){
         fb_shutdown();
         system("reboot -f 2>/dev/null");

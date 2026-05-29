@@ -1,0 +1,46 @@
+name: Build Triumph OS ISO
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y gcc make libmbedtls-dev grub-pc-bin grub-common xorriso fakeroot cpio gzip mtools
+
+      - name: Copy kernel
+        run: |
+          mkdir -p iso/boot/grub
+          sudo cp /boot/vmlinuz-$(uname -r) iso/boot/vmlinuz
+          sudo chmod 644 iso/boot/vmlinuz
+
+      - name: Copy kernel modules and firmware
+        run: |
+          KVER=$(uname -r)
+          echo "Kernel version: $KVER"
+          mkdir -p initramfs/lib/modules
+          sudo cp -r /lib/modules/$KVER initramfs/lib/modules/
+          mkdir -p initramfs/lib/firmware
+          sudo cp -r /lib/firmware/* initramfs/lib/firmware/ 2>/dev/null || true
+          sudo chown -R $(whoami) initramfs/
+
+      - name: Build
+        run: make iso
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: triumph-os.iso
+          path: triumph-os.iso
+          retention-days: 30
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: triumph-os.iso

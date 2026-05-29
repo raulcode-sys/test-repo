@@ -113,88 +113,100 @@ int main(void){
 
     open_tty();
 
+    /* ── dynamic module loader: finds .ko by name under /lib/modules ── */
     {
-        char err[200] = "";
-        char p1[] = "/lib/modules/6.8.0-111-generic/kernel/drivers/net/phy/realtek.ko";
-        if (load_module(p1, err, sizeof(err)) == 0) kmsg("loaded realtek PHY");
-        else { char b[256]; snprintf(b,sizeof(b),"realtek PHY load failed: %s",err); kmsg(b); }
-    }
-
-    {
-        char path[] = "/lib/modules/6.8.0-111-generic/kernel/drivers/net/ethernet/realtek/r8169.ko";
-        char err[200] = "";
-        if (load_module(path, err, sizeof(err)) == 0) {
-            kmsg("loaded r8169 ethernet driver");
-        } else {
-            char buf[256]; snprintf(buf, sizeof(buf), "r8169 load failed: %s", err);
-            kmsg(buf);
-            int fd = open("/tmp/r8169_error.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-            if (fd >= 0) { write(fd, buf, strlen(buf)); write(fd, "\n", 1); close(fd); }
-        }
-    }
-
-    {
-        const char *audio_modules[] = {
-            "/lib/modules/6.8.0-111-generic/kernel/sound/soundcore.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/core/snd.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/core/snd-timer.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/core/snd-pcm.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/core/snd-hwdep.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/hda/snd-intel-sdw-acpi.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/hda/snd-intel-dspcfg.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/hda/snd-hda-core.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/pci/hda/snd-hda-codec.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/pci/hda/snd-hda-codec-generic.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/pci/hda/snd-hda-codec-realtek.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/pci/hda/snd-hda-codec-hdmi.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/sound/pci/hda/snd-hda-intel.ko",
-            NULL
-        };
-        char audio_log[1024] = "";
-        for (int i = 0; audio_modules[i]; i++) {
-            char err[200] = "";
-            if (load_module(audio_modules[i], err, sizeof(err)) == 0) {
-                strncat(audio_log, "OK: ", sizeof(audio_log)-strlen(audio_log)-1);
-            } else {
-                strncat(audio_log, "FAIL: ", sizeof(audio_log)-strlen(audio_log)-1);
-                strncat(audio_log, err,    sizeof(audio_log)-strlen(audio_log)-1);
-                strncat(audio_log, " ",    sizeof(audio_log)-strlen(audio_log)-1);
+        /* find kernel version directory */
+        char kver[128] = "";
+        DIR *md = opendir("/lib/modules");
+        if (md) {
+            struct dirent *me;
+            while ((me = readdir(md))) {
+                if (me->d_name[0] != '.') {
+                    strncpy(kver, me->d_name, sizeof(kver)-1);
+                    break;
+                }
             }
-            const char *base = strrchr(audio_modules[i], '/');
-            strncat(audio_log, base ? base+1 : audio_modules[i],
-                    sizeof(audio_log)-strlen(audio_log)-1);
-            strncat(audio_log, "\n", sizeof(audio_log)-strlen(audio_log)-1);
+            closedir(md);
         }
-        int afd = open("/tmp/audio_log.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-        if (afd >= 0) { write(afd, audio_log, strlen(audio_log)); close(afd); }
-        kmsg("audio modules loaded");
-    }
 
-    /* ── USB + iPhone tethering + HID modules ── */
-    {
-        const char *usb_modules[] = {
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/common/usb-common.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/core/usbcore.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/host/ehci-hcd.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/host/ehci-pci.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/host/xhci-hcd.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/usb/host/xhci-pci.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/hid/hid.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/hid/hid-generic.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/hid/usbhid/usbhid.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/input/evdev.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/input/mousedev.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/net/usb/ipheth.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/net/usb/cdc_ether.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/net/usb/rndis_host.ko",
-            "/lib/modules/6.8.0-111-generic/kernel/drivers/net/usb/usbnet.ko",
-            NULL
-        };
-        for (int i = 0; usb_modules[i]; i++) {
-            char err[200] = "";
-            load_module(usb_modules[i], err, sizeof(err));
+        if (kver[0]) {
+            char klog[256];
+            snprintf(klog, sizeof(klog), "kernel modules dir: %s", kver);
+            kmsg(klog);
+
+            /* helper: try loading a module by searching recursively */
+            /* we use system("find ... -exec insmod ...") since we have no recursive walk */
+            /* but insmod won't work — use our load_module with find via popen */
+
+            const char *modules[] = {
+                /* ethernet */
+                "realtek.ko", "r8169.ko",
+                /* sound */
+                "soundcore.ko", "snd.ko", "snd-timer.ko", "snd-pcm.ko",
+                "snd-hwdep.ko", "snd-intel-sdw-acpi.ko", "snd-intel-dspcfg.ko",
+                "snd-hda-core.ko", "snd-hda-codec.ko", "snd-hda-codec-generic.ko",
+                "snd-hda-codec-realtek.ko", "snd-hda-codec-hdmi.ko", "snd-hda-intel.ko",
+                /* USB + HID */
+                "usbcore.ko", "ehci-hcd.ko", "ehci-pci.ko",
+                "xhci-hcd.ko", "xhci-pci.ko", "xhci-pci-renesas.ko",
+                "hid.ko", "hid-generic.ko", "usbhid.ko",
+                "evdev.ko", "mousedev.ko",
+                /* tethering */
+                "usbnet.ko", "cdc_ether.ko", "rndis_host.ko", "ipheth.ko",
+                NULL
+            };
+
+            char search_base[256];
+            snprintf(search_base, sizeof(search_base), "/lib/modules/%s", kver);
+
+            char audio_log[2048] = "";
+
+            for (int i = 0; modules[i]; i++) {
+                /* build find command to locate module */
+                char cmd[512], path[512] = "";
+                snprintf(cmd, sizeof(cmd), "find %s -name '%s' 2>/dev/null | head -1",
+                         search_base, modules[i]);
+                FILE *fp = popen(cmd, "r");
+                if (fp) {
+                    if (fgets(path, sizeof(path), fp)) {
+                        path[strcspn(path, "\n")] = 0;
+                    }
+                    pclose(fp);
+                }
+
+                if (path[0]) {
+                    char err[200] = "";
+                    if (load_module(path, err, sizeof(err)) == 0) {
+                        strncat(audio_log, "OK: ", sizeof(audio_log)-strlen(audio_log)-1);
+                    } else {
+                        strncat(audio_log, "FAIL: ", sizeof(audio_log)-strlen(audio_log)-1);
+                        strncat(audio_log, err, sizeof(audio_log)-strlen(audio_log)-1);
+                        strncat(audio_log, " ", sizeof(audio_log)-strlen(audio_log)-1);
+                    }
+                } else {
+                    strncat(audio_log, "NOTFOUND: ", sizeof(audio_log)-strlen(audio_log)-1);
+                }
+                strncat(audio_log, modules[i], sizeof(audio_log)-strlen(audio_log)-1);
+                strncat(audio_log, "\n", sizeof(audio_log)-strlen(audio_log)-1);
+            }
+
+            int afd = open("/tmp/modules_log.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+            if (afd >= 0) { write(afd, audio_log, strlen(audio_log)); close(afd); }
+
+            /* also write r8169 error if it failed */
+            if (strstr(audio_log, "FAIL: ") && strstr(audio_log, "r8169")) {
+                int efd = open("/tmp/r8169_error.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+                if (efd >= 0) {
+                    const char *msg = "r8169 load failed — check /tmp/modules_log.txt\n";
+                    write(efd, msg, strlen(msg));
+                    close(efd);
+                }
+            }
+
+            kmsg("all modules loaded");
+        } else {
+            kmsg("WARNING: no kernel modules directory found");
         }
-        kmsg("USB/tethering modules loaded");
     }
 
     sleep(2);

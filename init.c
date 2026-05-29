@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
+#include <dirent.h>
 
 #include "splash.c"
 #include "audio.c"

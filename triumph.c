@@ -975,64 +975,38 @@ int main(int argc,char *argv[]){
     theme_init();
     fb_startup();
 
-    /* main idle loop — just waits for Shift+M/T
-       when PTY is active, keystrokes get forwarded to it */
-    struct termios idle_old, idle_raw;
-    tcgetattr(0,&idle_old); idle_raw=idle_old;
-    idle_raw.c_lflag &= ~(ICANON|ECHO);
-    idle_raw.c_cc[VMIN]=1; idle_raw.c_cc[VTIME]=0;
-    tcsetattr(0,TCSANOW,&idle_raw);
-
+    /* main loop */
+    char line[SH_MAX_INPUT];
     while(running){
-        unsigned char c;
-        if(read(0,&c,1)<=0) break;
-
-        /* sentinel from external keyboard */
-        if(c==0x01){
-            unsigned char c2;
-            if(read(0,&c2,1)>0){
-                if(c2=='M') fb_toggle_menu();
-                else if(c2=='T') fb_toggle_term();
+        int n=triumph_readline(line,SH_MAX_INPUT);
+        if(n<0) break;
+        if(n==0) continue;
+        /* Shift+M */
+        if(n==2 && line[0]=='\x01' && line[1]=='M'){
+            fb_toggle_menu();
+            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
+            continue;
+        }
+        /* Shift+T */
+        if(n==2 && line[0]=='\x01' && line[1]=='T'){
+            fb_toggle_term();
+            if(term_open){
+                char tline[SH_MAX_INPUT];
+                while(running){
+                    print_prompt();
+                    int tn=triumph_readline(tline,SH_MAX_INPUT);
+                    if(tn<0) break;
+                    if(tn==0) continue;
+                    if(tline[0]=='\x01'&&tline[1]=='T') break;
+                    hist_add(tline);
+                    run_line(tline);
+                }
+                fb_term_post();
             }
             continue;
         }
-
-        /* Shift+M / Shift+T from built-in keyboard (idle, nothing open) */
-        if(!pty_active){
-            if(c=='M') fb_toggle_menu();
-            else if(c=='T') fb_toggle_term();
-            continue;
-        }
-
-        /* forward keys to PTY */
-        if(c==27){
-            /* escape sequence — check for arrow keys etc */
-            unsigned char seq[3];
-            struct termios tmp=idle_raw;
-            tmp.c_cc[VMIN]=0;tmp.c_cc[VTIME]=1;
-            tcsetattr(0,TCSANOW,&tmp);
-            int n=read(0,seq,3);
-            tcsetattr(0,TCSANOW,&idle_raw);
-            if(n<=0){
-                /* bare ESC — forward it */
-                write(pty_master,"\x1b",1);
-            } else {
-                /* forward full sequence */
-                write(pty_master,"\x1b",1);
-                write(pty_master,seq,n);
-            }
-            continue;
-        }
-
-        /* Shift+M/T while PTY active = close */
-        if(c=='M' && (menu_open||term_open)){ fb_toggle_menu(); continue; }
-        if(c=='T' && (menu_open||term_open)){ fb_toggle_term(); continue; }
-
-        /* regular key → PTY */
-        fb_key_to_pty(c);
-    }
-
-    tcsetattr(0,TCSANOW,&idle_old);
+        hist_add(line);
+        run_line(line);}
     if(getpid()==1){
         fb_shutdown();
         system("reboot -f 2>/dev/null");

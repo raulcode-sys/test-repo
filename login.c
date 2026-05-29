@@ -1,5 +1,12 @@
 #include <mbedtls/sha256.h>
 
+#define LG_BG   "\x1b[48;5;17m"
+#define LG_FG   "\x1b[38;5;51m"
+#define LG_DIM  "\x1b[38;5;33m"
+#define LG_DIM2 "\x1b[38;5;67m"
+#define LG_YEL  "\x1b[38;5;226m"
+#define LG_GRN  "\x1b[38;5;82m"
+#define LG_RED  "\x1b[38;5;196m"
 
 #define PERSIST_MOUNT  "/persist"
 #define USERS_DB       "/persist/users.db"
@@ -140,7 +147,7 @@ static void lg_add_user(const char *name, const char *pass) {
 }
 
 static void lg_paint_bg(int rows, int cols) {
-    lg_w(TH_BG);
+    lg_w(LG_BG);
     lg_at(1,1);
     for (int r=0;r<rows;r++) {
         for (int c=0;c<cols;c++) lg_w(" ");
@@ -167,8 +174,8 @@ static void lg_read_field(const char *prompt, char *buf, int bufsz,
     tcsetattr(0, TCSANOW, &raw);
 
     lg_at(row, col);
-    lg_w(TH_YEL); lg_w("\x1b[1m"); lg_w(prompt); lg_w("\x1b[22m");
-    lg_w(TH_FG); lg_w("┌");
+    lg_w(LG_YEL"\x1b[1m"); lg_w(prompt); lg_w("\x1b[22m");
+    lg_w(LG_FG"┌");
     for(int i=0;i<fieldw;i++) lg_w("─");
     lg_w("┐");
     lg_at(row+1, col);
@@ -186,13 +193,13 @@ static void lg_read_field(const char *prompt, char *buf, int bufsz,
         lg_at(row+1, col+2);
         if (echo) {
             char pad[128]; snprintf(pad, sizeof(pad), "%-*s", fieldw-2, buf);
-            lg_w(TH_YEL); lg_w(pad);
+            lg_w(LG_YEL); lg_w(pad);
         } else {
             
             char stars[128] = {0};
             for (int i=0;i<len && i<fieldw-3;i++) stars[i]='*';
             char pad[128]; snprintf(pad,sizeof(pad),"%-*s",fieldw-2,stars);
-            lg_w(TH_YEL); lg_w(pad);
+            lg_w(LG_YEL); lg_w(pad);
         }
         lg_at(row+1, col+2+len);
         fflush(stdout);
@@ -223,14 +230,14 @@ static void lg_draw_screen(int rows, int cols, const char *subtitle) {
     int bx = (cols - 58) / 2; if (bx<1) bx=1;
     for (int i=0; LG_BANNER[i]; i++) {
         lg_at(2+i, bx);
-        lg_w(TH_FG); lg_w(LG_BANNER[i]);
+        lg_w(LG_FG); lg_w(LG_BANNER[i]);
     }
     if (subtitle) {
         int sx = (cols - (int)strlen(subtitle)) / 2;
         lg_at(9, sx);
-        lg_w(TH_YEL); lg_w("\x1b[1m"); lg_w(subtitle); lg_w("\x1b[22m");
+        lg_w(LG_YEL"\x1b[1m"); lg_w(subtitle); lg_w("\x1b[22m");
     }
-    lg_at(10, 1); lg_w(TH_DIM);
+    lg_at(10, 1); lg_w(LG_DIM);
     for (int c=0;c<cols;c++) lg_w("═");
 }
 
@@ -252,16 +259,16 @@ static int lg_do_login(int rows, int cols) {
 
     int idx = lg_user_exists(uname);
     if (idx < 0) {
-        lg_message(17, cx, "User not found.", TH_RED);
+        lg_message(17, cx, "User not found.", LG_RED);
         return 0;
     }
 
     lg_draw_screen(rows, cols, "── LOGIN ──");
-    lg_at(12, cx); lg_w(TH_DIM2); lg_w("Username: "); lg_w(TH_FG); lg_w(uname);
+    lg_at(12, cx); lg_w(LG_DIM2"Username: "LG_FG); lg_w(uname);
     lg_read_field("Password:", pass, sizeof(pass), 0, 14, cx, 36);
 
     if (!lg_check_password(idx, pass)) {
-        lg_message(19, cx, "Wrong password.", TH_RED);
+        lg_message(19, cx, "Wrong password.", LG_RED);
         return 0;
     }
 
@@ -278,7 +285,7 @@ static int lg_do_login(int rows, int cols) {
     lg_draw_screen(rows, cols, NULL);
     int mx = (cols-(int)strlen(msg))/2;
     lg_at(rows/2, mx);
-    lg_w(TH_GRN); lg_w("\x1b[1m"); lg_w(msg); lg_w("\x1b[22m");
+    lg_w(LG_GRN"\x1b[1m"); lg_w(msg); lg_w("\x1b[22m");
     fflush(stdout);
     sleep(1);
     return 1;
@@ -291,30 +298,30 @@ static void lg_do_register(int rows, int cols) {
     lg_draw_screen(rows, cols, "── CREATE ACCOUNT ──");
     lg_read_field("Choose username:", uname, sizeof(uname), 1, 12, cx, 36);
 
-    if (strlen(uname) < 2) { lg_message(17,cx,"Username too short (min 2).",TH_RED); return; }
-    if (lg_user_exists(uname) >= 0) { lg_message(17,cx,"Username already taken.",TH_RED); return; }
+    if (strlen(uname) < 2) { lg_message(17,cx,"Username too short (min 2).",LG_RED); return; }
+    if (lg_user_exists(uname) >= 0) { lg_message(17,cx,"Username already taken.",LG_RED); return; }
     
     for (int i=0; uname[i]; i++) {
         if (!isalnum((unsigned char)uname[i]) && uname[i]!='_') {
-            lg_message(17,cx,"Letters/numbers/underscore only.",TH_RED); return;
+            lg_message(17,cx,"Letters/numbers/underscore only.",LG_RED); return;
         }
     }
 
     lg_draw_screen(rows, cols, "── CREATE ACCOUNT ──");
-    lg_at(12, cx); lg_w(TH_DIM2); lg_w("Username: "); lg_w(TH_FG); lg_w(uname);
+    lg_at(12, cx); lg_w(LG_DIM2"Username: "LG_FG); lg_w(uname);
     lg_read_field("Choose password:", pass, sizeof(pass), 0, 14, cx, 36);
 
-    if (strlen(pass) < 4) { lg_message(19,cx,"Password too short (min 4).",TH_RED); return; }
+    if (strlen(pass) < 4) { lg_message(19,cx,"Password too short (min 4).",LG_RED); return; }
 
     lg_draw_screen(rows, cols, "── CREATE ACCOUNT ──");
-    lg_at(12, cx); lg_w(TH_DIM2); lg_w("Username: "); lg_w(TH_FG); lg_w(uname);
-    lg_at(13, cx); lg_w(TH_DIM2); lg_w("Password: "); lg_w(TH_FG); lg_w("****");
+    lg_at(12, cx); lg_w(LG_DIM2"Username: "LG_FG); lg_w(uname);
+    lg_at(13, cx); lg_w(LG_DIM2"Password: "LG_FG); lg_w("****");
     lg_read_field("Confirm password:", pass2, sizeof(pass2), 0, 15, cx, 36);
 
-    if (strcmp(pass, pass2)!=0) { lg_message(20,cx,"Passwords don't match.",TH_RED); return; }
+    if (strcmp(pass, pass2)!=0) { lg_message(20,cx,"Passwords don't match.",LG_RED); return; }
 
     if (!g_persist_ok) {
-        lg_message(20,cx,"No persist partition — account won't survive reboot.",TH_YEL);
+        lg_message(20,cx,"No persist partition — account won't survive reboot.",LG_YEL);
         sleep(2);
     }
 
@@ -324,7 +331,7 @@ static void lg_do_register(int rows, int cols) {
     lg_draw_screen(rows, cols, NULL);
     int mx=(cols-(int)strlen(msg))/2;
     lg_at(rows/2, mx);
-    lg_w(TH_GRN); lg_w("\x1b[1m"); lg_w(msg); lg_w("\x1b[22m");
+    lg_w(LG_GRN"\x1b[1m"); lg_w(msg); lg_w("\x1b[22m");
     fflush(stdout);
     sleep(2);
 }
@@ -352,11 +359,11 @@ static void lg_run(void) {
         
         lg_draw_screen(rows, cols, "── FIRST BOOT ──");
         int cx = (cols-50)/2; if(cx<2) cx=2;
-        lg_at(12, cx); lg_w(TH_FG); lg_w("No accounts exist yet. Create your first account.");
+        lg_at(12, cx); lg_w(LG_FG"No accounts exist yet. Create your first account.");
         if (!g_persist_ok) {
-            lg_at(13, cx); lg_w(TH_YEL); lg_w("Warning: no persist partition found.");
-            lg_at(14, cx); lg_w(TH_DIM2); lg_w("Accounts will be lost on reboot.");
-            lg_at(15, cx); lg_w(TH_DIM2); lg_w("Run setup-persist from shell to set up USB storage.");
+            lg_at(13, cx); lg_w(LG_YEL"Warning: no persist partition found.");
+            lg_at(14, cx); lg_w(LG_DIM2"Accounts will be lost on reboot.");
+            lg_at(15, cx); lg_w(LG_DIM2"Run setup-persist from shell to set up USB storage.");
         }
         fflush(stdout);
         sleep(2);
@@ -378,13 +385,13 @@ static void lg_run(void) {
         lg_draw_screen(rows, cols, NULL);
         int cx = (cols-40)/2; if(cx<4) cx=4;
 
-        lg_at(12, cx); lg_w(TH_FG); lg_w("\x1b[1mL\x1b[22m"); lg_w(TH_DIM2); lg_w("  Login");
-        lg_at(13, cx); lg_w(TH_FG); lg_w("\x1b[1mN\x1b[22m"); lg_w(TH_DIM2); lg_w("  New account");
-        lg_at(14, cx); lg_w(TH_FG); lg_w("\x1b[1mG\x1b[22m"); lg_w(TH_DIM2); lg_w("  Continue as guest (no persistence)");
+        lg_at(12, cx); lg_w(LG_FG"\x1b[1mL\x1b[22m"LG_DIM2"  Login");
+        lg_at(13, cx); lg_w(LG_FG"\x1b[1mN\x1b[22m"LG_DIM2"  New account");
+        lg_at(14, cx); lg_w(LG_FG"\x1b[1mG\x1b[22m"LG_DIM2"  Continue as guest (no persistence)");
 
         if (!g_persist_ok) {
             lg_at(rows-3, 2);
-            lg_w(TH_YEL); lg_w("No persist partition — accounts won't survive reboot.");
+            lg_w(LG_YEL"No persist partition — accounts won't survive reboot.");
         }
         fflush(stdout);
 

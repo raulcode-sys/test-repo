@@ -1,8 +1,6 @@
 #pragma once
 #include <linux/fb.h>
-#include <linux/input.h>
 #include <sys/mman.h>
-#include <pthread.h>
 #include "wallpaper.h"
 
 typedef struct {
@@ -42,21 +40,22 @@ static void show_wallpaper(void){
 
 static void fb_toggle_menu(void){
     if(fb.fd<0)return;
-    if(menu_open){show_wallpaper();menu_open=0;return;}
-    menu_open=1; write(1,"\x1b[?25h\x1b[2J\x1b[H",13);fflush(stdout);
+    menu_open=1;
 }
-static void fb_menu_post(void){show_wallpaper();menu_open=0;}
+static void fb_menu_post(void){
+    menu_open=0;
+    show_wallpaper();
+}
 
 static void fb_toggle_term(void){
     if(fb.fd<0)return;
-    if(term_open){show_wallpaper();term_open=0;return;}
-    term_open=1; write(1,"\x1b[?25h\x1b[2J\x1b[H",13);fflush(stdout);
+    term_open=1;
+    write(1,"\x1b[?25h\x1b[2J\x1b[H",13);fflush(stdout);
 }
-static void fb_term_post(void){show_wallpaper();term_open=0;}
-
-static void *wp_keeper(void *a){(void)a;
-    while(1){usleep(200000);if(!menu_open&&!term_open)fb_draw_wallpaper();}
-    return NULL;}
+static void fb_term_post(void){
+    term_open=0;
+    show_wallpaper();
+}
 
 static int fb_init(void){
     const char *d[]={"/dev/fb0","/dev/fb1",NULL};
@@ -80,8 +79,6 @@ static int fb_init(void){
 static void fb_startup(void){
     if(fb_init()<0)return;
     show_wallpaper();
-    pthread_t t;
-    pthread_create(&t,NULL,wp_keeper,NULL);pthread_detach(t);
 }
 
 static void fb_shutdown(void){

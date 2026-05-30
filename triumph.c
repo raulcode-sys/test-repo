@@ -20,9 +20,9 @@
 #include <pwd.h>
 #include <grp.h>
 #include <glob.h>
-#include <ctype.h>
 
 #include "wallpaper.h"
+#include <ctype.h>
 #include <stdarg.h>
 
 #define SH_VERSION  "1.0.0"
@@ -210,8 +210,8 @@ static int triumph_readline(char *buf,int maxlen){
                     write(1,"\x1b[P",3);write(1,buf+pos,len-pos);
                     if(len-pos){char mv[16];snprintf(mv,16,"\x1b[%dD",len-pos);write(1,mv,strlen(mv));}}}
         } else if(c>=32&&c<127){
-            if (c == 'M' && len == 0) { buf[0]='\x01'; buf[1]='M'; buf[2]=0; term_restore(); return 2; }
-            if (c == 'T' && len == 0) { buf[0]='\x01'; buf[1]='T'; buf[2]=0; term_restore(); return 2; }
+            if(c=='M'&&len==0){buf[0]='\x01';buf[1]='M';buf[2]=0;term_restore();return 2;}
+            if(c=='T'&&len==0){buf[0]='\x01';buf[1]='T';buf[2]=0;term_restore();return 2;}
             if(len<maxlen-1){
                 memmove(buf+pos+1,buf+pos,len-pos);buf[pos]=c;len++;buf[len]='\0';
                 write(1,buf+pos,len-pos);pos++;
@@ -893,64 +893,44 @@ int main(int argc,char *argv[]){
 
     theme_init();
     fb_startup();
-
-    /* boot into menu first */
     { Cmd dc={0}; b_menu(&dc); }
     show_wallpaper();
 
-    /* wallpaper idle loop — raw read, no prompt, no echo
-       only Shift+M and Shift+T are accepted */
-    {
-        struct termios wo, wr;
-        tcgetattr(0,&wo); wr=wo;
-        wr.c_lflag &= ~(ICANON|ECHO|ISIG);
-        wr.c_cc[VMIN]=1; wr.c_cc[VTIME]=0;
-        tcsetattr(0,TCSAFLUSH,&wr);
-
-        while(running){
-            unsigned char c;
-            if(read(0,&c,1)<=0) break;
-
-            /* sentinel from readline or external kb */
-            if(c==0x01){
-                unsigned char c2;
-                if(read(0,&c2,1)<=0) continue;
-                c=c2;
+    {struct termios wo,wr;
+    tcgetattr(0,&wo);wr=wo;
+    wr.c_lflag&=~(ICANON|ECHO|ISIG);
+    wr.c_cc[VMIN]=1;wr.c_cc[VTIME]=0;
+    tcsetattr(0,TCSAFLUSH,&wr);
+    while(running){
+        unsigned char c;
+        if(read(0,&c,1)<=0)break;
+        if(c==0x01){unsigned char c2;if(read(0,&c2,1)>0)c=c2;else continue;}
+        if(c=='M'){
+            tcsetattr(0,TCSANOW,&wo);
+            {Cmd dc={0};b_menu(&dc);}
+            show_wallpaper();
+            tcsetattr(0,TCSAFLUSH,&wr);
+        } else if(c=='T'){
+            tcsetattr(0,TCSANOW,&wo);
+            write(1,"\x1b[?25h\x1b[2J\x1b[H",13);
+            fflush(stdout);
+            char tl[SH_MAX_INPUT];
+            int trun=1;
+            while(trun&&running){
+                print_prompt();
+                int tn=triumph_readline(tl,SH_MAX_INPUT);
+                if(tn<0)trun=0;
+                else if(tn==0)continue;
+                else if(tn==2&&tl[0]=='\x01'&&tl[1]=='T')trun=0;
+                else{hist_add(tl);run_line(tl);}
             }
-
-            if(c=='M'){
-                /* open menu */
-                tcsetattr(0,TCSANOW,&wo);
-                { Cmd dc={0}; b_menu(&dc); }
-                show_wallpaper();
-                tcsetattr(0,TCSAFLUSH,&wr);
-                continue;
-            }
-            if(c=='T'){
-                /* open terminal */
-                tcsetattr(0,TCSANOW,&wo);
-                write(1,"\x1b[?25h\x1b[2J\x1b[H",13);
-                fflush(stdout);
-                char tl[SH_MAX_INPUT];
-                while(running){
-                    print_prompt();
-                    int tn=triumph_readline(tl,SH_MAX_INPUT);
-                    if(tn<0) break;
-                    if(tn==0) continue;
-                    /* Shift+T to close terminal */
-                    if(tn==2&&tl[0]=='\x01'&&tl[1]=='T') break;
-                    hist_add(tl);
-                    run_line(tl);
-                }
-                show_wallpaper();
-                tcsetattr(0,TCSAFLUSH,&wr);
-                continue;
-            }
-            /* all other keys ignored on wallpaper */
+            show_wallpaper();
+            tcsetattr(0,TCSAFLUSH,&wr);
         }
-        tcsetattr(0,TCSANOW,&wo);
     }
+    tcsetattr(0,TCSANOW,&wo);}
     if(getpid()==1){
+        fb_shutdown();
         system("reboot -f 2>/dev/null");
         for(;;)pause();}
     return last_exit;}

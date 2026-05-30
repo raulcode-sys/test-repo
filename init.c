@@ -114,14 +114,12 @@ int main(void){
 
     open_tty();
 
-    /* ── dynamic module loader — finds .ko by name ── */
     {
         char kver[128]="";
         DIR *md=opendir("/lib/modules");
         if(md){struct dirent *me;
             while((me=readdir(md)))if(me->d_name[0]!='.'){strncpy(kver,me->d_name,127);break;}
             closedir(md);}
-
         if(kver[0]){
             char klog[256];snprintf(klog,256,"modules dir: %s",kver);kmsg(klog);
             const char *mods[]={
@@ -134,7 +132,7 @@ int main(void){
                 "hid.ko","hid-generic.ko","usbhid.ko","evdev.ko","mousedev.ko",
                 "usbnet.ko","cdc_ether.ko","rndis_host.ko","ipheth.ko",
                 NULL};
-            char base[256],log[2048]="";
+            char base[256],mlog[2048]="";
             snprintf(base,256,"/lib/modules/%s",kver);
             for(int i=0;mods[i];i++){
                 char cmd[512],path[512]="";
@@ -143,15 +141,15 @@ int main(void){
                 if(fp){if(fgets(path,512,fp))path[strcspn(path,"\n")]=0;pclose(fp);}
                 if(path[0]){
                     char err[200]="";
-                    if(load_module(path,err,200)==0) strncat(log,"OK: ",2047-strlen(log));
-                    else{strncat(log,"FAIL: ",2047-strlen(log));strncat(log,err,2047-strlen(log));strncat(log," ",2047-strlen(log));}
-                } else strncat(log,"NOTFOUND: ",2047-strlen(log));
-                strncat(log,mods[i],2047-strlen(log));strncat(log,"\n",2047-strlen(log));
+                    if(load_module(path,err,200)==0)strncat(mlog,"OK: ",2047-strlen(mlog));
+                    else{strncat(mlog,"FAIL: ",2047-strlen(mlog));strncat(mlog,err,2047-strlen(mlog));strncat(mlog," ",2047-strlen(mlog));}
+                }else strncat(mlog,"NOTFOUND: ",2047-strlen(mlog));
+                strncat(mlog,mods[i],2047-strlen(mlog));strncat(mlog,"\n",2047-strlen(mlog));
             }
             int fd=open("/tmp/modules_log.txt",O_WRONLY|O_CREAT|O_TRUNC,0644);
-            if(fd>=0){write(fd,log,strlen(log));close(fd);}
+            if(fd>=0){write(fd,mlog,strlen(mlog));close(fd);}
             kmsg("all modules loaded");
-        } else kmsg("WARNING: no kernel modules directory found");
+        }else kmsg("WARNING: no modules dir found");
     }
 
     sleep(2);

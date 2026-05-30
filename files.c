@@ -1,5 +1,13 @@
 
 
+#define FX_BG  "\x1b[48;5;17m"
+#define FX_FG  "\x1b[38;5;51m"
+#define FX_HI  "\x1b[48;5;51m\x1b[38;5;17m"
+#define FX_DIM "\x1b[38;5;33m"
+#define FX_DIM2 "\x1b[38;5;67m"
+#define FX_YEL "\x1b[38;5;226m"
+#define FX_GRN "\x1b[38;5;82m"
+#define FX_RED "\x1b[38;5;196m"
 
 typedef struct {
     char  name[256];
@@ -82,7 +90,7 @@ static int fx_readkey(int blocking) {
 }
 
 static void fx_paint_bg(int rows, int cols) {
-    fx_w(th_bg());
+    fx_w(FX_BG);
     fx_at(1,1);
     for (int r=0;r<rows;r++) {
         for (int c=0;c<cols;c++) fx_w(" ");
@@ -102,12 +110,12 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
     fx_paint_bg(rows, cols);
 
     fx_at(2, 2);
-    fx_w(th_yel()); fx_w("\x1b[1m"); fx_w("── FILE EXPLORER ──"); fx_w("\x1b[22m");
+    fx_w(FX_YEL"\x1b[1m"); fx_w("── FILE EXPLORER ──"); fx_w("\x1b[22m");
 
     fx_at(3, 2);
-    fx_w(th_fg()); fx_w("path: "); fx_w(th_dim()2); fx_w(cwd);
+    fx_w(FX_FG"path: "FX_DIM2); fx_w(cwd);
 
-    fx_at(4, 1); fx_w(th_dim());
+    fx_at(4, 1); fx_w(FX_DIM);
     for (int c=0;c<cols;c++) fx_w("─");
 
     int list_top = 5;
@@ -121,7 +129,7 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
         FxEnt *e = &ents[idx];
         fx_at(list_top + i, 2);
         if (idx == sel) {
-            fx_w(th_hi()); fx_w("\x1b[1m");
+            fx_w(FX_HI"\x1b[1m");
             char line[512];
             char sz[24];
             if (e->is_dir) snprintf(sz, sizeof(sz), "<DIR>");
@@ -131,9 +139,9 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
             snprintf(line, sizeof(line), " %s %-*s %10s ",
                      e->is_dir?"▶":" ", cols-20, e->name, sz);
             fx_w(line);
-            fx_w("\x1b[22m"); fx_w(th_bg()); fx_w(th_fg());
+            fx_w("\x1b[22m"); fx_w(FX_BG FX_FG);
         } else {
-            if (e->is_dir) { fx_w(th_fg()); fx_w("\x1b[1m"); } else fx_w(th_dim()2);
+            if (e->is_dir) fx_w(FX_FG"\x1b[1m"); else fx_w(FX_DIM2);
             char line[512];
             char sz[24];
             if (e->is_dir) snprintf(sz, sizeof(sz), "<DIR>");
@@ -147,12 +155,12 @@ static void fx_draw(const char *cwd, FxEnt *ents, int n, int sel, int top,
         }
     }
 
-    if (status) fx_status(rows, cols, status, status_col?status_col:th_fg());
+    if (status) fx_status(rows, cols, status, status_col?status_col:FX_FG);
 
-    fx_at(rows-1, 1); fx_w(th_dim());
+    fx_at(rows-1, 1); fx_w(FX_DIM);
     for (int c=0;c<cols;c++) fx_w("─");
     fx_at(rows, 2);
-    fx_w(th_fg()); fx_w("↑↓ "); fx_w(th_dim()); fx_w("nav  "); fx_w(th_fg()); fx_w("ENTER "); fx_w(th_dim()); fx_w("open  "); fx_w(th_fg()); fx_w("R "); fx_w(th_dim()); fx_w("read  "); fx_w(th_fg()); fx_w("E "); fx_w(th_dim()); fx_w("edit  "); fx_w(th_fg()); fx_w("D "); fx_w(th_dim()); fx_w("delete  "); fx_w(th_fg()); fx_w("ESC "); fx_w(th_dim()); fx_w("back");
+    fx_w(FX_FG"↑↓ "FX_DIM"nav  "FX_FG"ENTER "FX_DIM"open  "FX_FG"R "FX_DIM"read  "FX_FG"E "FX_DIM"edit  "FX_FG"D "FX_DIM"delete  "FX_FG"ESC "FX_DIM"back");
     fflush(stdout);
 }
 
@@ -268,7 +276,7 @@ static int b_files(Cmd *c) { (void)c;
                 fx_w("\x1b[?25l\x1b[2J");
             } else {
                 strcpy(status, "Cannot read a directory");
-                status_col = th_red();
+                status_col = FX_RED;
             }
         }
         else if (k=='E') {
@@ -286,17 +294,17 @@ static int b_files(Cmd *c) { (void)c;
                 fx_w("\x1b[?25l\x1b[2J");
             } else {
                 strcpy(status, "Cannot edit a directory");
-                status_col = th_red();
+                status_col = FX_RED;
             }
         }
         else if (k=='D') {
             FxEnt *e = &ents[sel];
             if (strcmp(e->name, "..") == 0) {
                 strcpy(status, "Cannot delete '..'");
-                status_col = th_red();
+                status_col = FX_RED;
             } else {
                 
-                fx_status(rows, cols, "Delete? Y to confirm, anything else to cancel", th_yel());
+                fx_status(rows, cols, "Delete? Y to confirm, anything else to cancel", FX_YEL);
                 fflush(stdout);
                 int conf = fx_readkey(1);
                 if (conf=='Y' || conf=='y') {
@@ -307,17 +315,17 @@ static int b_files(Cmd *c) { (void)c;
                     else           rc = unlink(full);
                     if (rc < 0) {
                         snprintf(status, sizeof(status), "Delete failed: %s", strerror(errno));
-                        status_col = th_red();
+                        status_col = FX_RED;
                     } else {
                         snprintf(status, sizeof(status), "Deleted: %s", e->name);
-                        status_col = th_grn();
+                        status_col = FX_GRN;
                         n = fx_load(cwd, ents, FX_MAX);
                         if (sel >= n) sel = n-1;
                         if (sel < 0) sel = 0;
                     }
                 } else {
                     strcpy(status, "Cancelled");
-                    status_col = th_dim();
+                    status_col = FX_DIM;
                 }
             }
         }

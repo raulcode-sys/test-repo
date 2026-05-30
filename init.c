@@ -114,100 +114,44 @@ int main(void){
 
     open_tty();
 
-    /* ── dynamic module loader: finds .ko by name under /lib/modules ── */
+    /* ── dynamic module loader — finds .ko by name ── */
     {
-        /* find kernel version directory */
-        char kver[128] = "";
-        DIR *md = opendir("/lib/modules");
-        if (md) {
-            struct dirent *me;
-            while ((me = readdir(md))) {
-                if (me->d_name[0] != '.') {
-                    strncpy(kver, me->d_name, sizeof(kver)-1);
-                    break;
-                }
+        char kver[128]="";
+        DIR *md=opendir("/lib/modules");
+        if(md){struct dirent *me;
+            while((me=readdir(md)))if(me->d_name[0]!='.'){strncpy(kver,me->d_name,127);break;}
+            closedir(md);}
+
+        if(kver[0]){
+            char klog[256];snprintf(klog,256,"modules dir: %s",kver);kmsg(klog);
+            const char *mods[]={
+                "realtek.ko","r8169.ko",
+                "soundcore.ko","snd.ko","snd-timer.ko","snd-pcm.ko","snd-hwdep.ko",
+                "snd-intel-sdw-acpi.ko","snd-intel-dspcfg.ko","snd-hda-core.ko",
+                "snd-hda-codec.ko","snd-hda-codec-generic.ko","snd-hda-codec-realtek.ko",
+                "snd-hda-codec-hdmi.ko","snd-hda-intel.ko",
+                "usbcore.ko","ehci-hcd.ko","ehci-pci.ko","xhci-hcd.ko","xhci-pci.ko",
+                "hid.ko","hid-generic.ko","usbhid.ko","evdev.ko","mousedev.ko",
+                "usbnet.ko","cdc_ether.ko","rndis_host.ko","ipheth.ko",
+                NULL};
+            char base[256],log[2048]="";
+            snprintf(base,256,"/lib/modules/%s",kver);
+            for(int i=0;mods[i];i++){
+                char cmd[512],path[512]="";
+                snprintf(cmd,512,"find %s -name '%s' 2>/dev/null|head -1",base,mods[i]);
+                FILE *fp=popen(cmd,"r");
+                if(fp){if(fgets(path,512,fp))path[strcspn(path,"\n")]=0;pclose(fp);}
+                if(path[0]){
+                    char err[200]="";
+                    if(load_module(path,err,200)==0) strncat(log,"OK: ",2047-strlen(log));
+                    else{strncat(log,"FAIL: ",2047-strlen(log));strncat(log,err,2047-strlen(log));strncat(log," ",2047-strlen(log));}
+                } else strncat(log,"NOTFOUND: ",2047-strlen(log));
+                strncat(log,mods[i],2047-strlen(log));strncat(log,"\n",2047-strlen(log));
             }
-            closedir(md);
-        }
-
-        if (kver[0]) {
-            char klog[256];
-            snprintf(klog, sizeof(klog), "kernel modules dir: %s", kver);
-            kmsg(klog);
-
-            /* helper: try loading a module by searching recursively */
-            /* we use system("find ... -exec insmod ...") since we have no recursive walk */
-            /* but insmod won't work — use our load_module with find via popen */
-
-            const char *modules[] = {
-                /* ethernet */
-                "realtek.ko", "r8169.ko",
-                /* sound */
-                "soundcore.ko", "snd.ko", "snd-timer.ko", "snd-pcm.ko",
-                "snd-hwdep.ko", "snd-intel-sdw-acpi.ko", "snd-intel-dspcfg.ko",
-                "snd-hda-core.ko", "snd-hda-codec.ko", "snd-hda-codec-generic.ko",
-                "snd-hda-codec-realtek.ko", "snd-hda-codec-hdmi.ko", "snd-hda-intel.ko",
-                /* USB + HID */
-                "usbcore.ko", "ehci-hcd.ko", "ehci-pci.ko",
-                "xhci-hcd.ko", "xhci-pci.ko", "xhci-pci-renesas.ko",
-                "hid.ko", "hid-generic.ko", "usbhid.ko",
-                "evdev.ko", "mousedev.ko",
-                /* tethering */
-                "usbnet.ko", "cdc_ether.ko", "rndis_host.ko", "ipheth.ko",
-                NULL
-            };
-
-            char search_base[256];
-            snprintf(search_base, sizeof(search_base), "/lib/modules/%s", kver);
-
-            char audio_log[2048] = "";
-
-            for (int i = 0; modules[i]; i++) {
-                /* build find command to locate module */
-                char cmd[512], path[512] = "";
-                snprintf(cmd, sizeof(cmd), "find %s -name '%s' 2>/dev/null | head -1",
-                         search_base, modules[i]);
-                FILE *fp = popen(cmd, "r");
-                if (fp) {
-                    if (fgets(path, sizeof(path), fp)) {
-                        path[strcspn(path, "\n")] = 0;
-                    }
-                    pclose(fp);
-                }
-
-                if (path[0]) {
-                    char err[200] = "";
-                    if (load_module(path, err, sizeof(err)) == 0) {
-                        strncat(audio_log, "OK: ", sizeof(audio_log)-strlen(audio_log)-1);
-                    } else {
-                        strncat(audio_log, "FAIL: ", sizeof(audio_log)-strlen(audio_log)-1);
-                        strncat(audio_log, err, sizeof(audio_log)-strlen(audio_log)-1);
-                        strncat(audio_log, " ", sizeof(audio_log)-strlen(audio_log)-1);
-                    }
-                } else {
-                    strncat(audio_log, "NOTFOUND: ", sizeof(audio_log)-strlen(audio_log)-1);
-                }
-                strncat(audio_log, modules[i], sizeof(audio_log)-strlen(audio_log)-1);
-                strncat(audio_log, "\n", sizeof(audio_log)-strlen(audio_log)-1);
-            }
-
-            int afd = open("/tmp/modules_log.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-            if (afd >= 0) { write(afd, audio_log, strlen(audio_log)); close(afd); }
-
-            /* also write r8169 error if it failed */
-            if (strstr(audio_log, "FAIL: ") && strstr(audio_log, "r8169")) {
-                int efd = open("/tmp/r8169_error.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-                if (efd >= 0) {
-                    const char *msg = "r8169 load failed — check /tmp/modules_log.txt\n";
-                    write(efd, msg, strlen(msg));
-                    close(efd);
-                }
-            }
-
+            int fd=open("/tmp/modules_log.txt",O_WRONLY|O_CREAT|O_TRUNC,0644);
+            if(fd>=0){write(fd,log,strlen(log));close(fd);}
             kmsg("all modules loaded");
-        } else {
-            kmsg("WARNING: no kernel modules directory found");
-        }
+        } else kmsg("WARNING: no kernel modules directory found");
     }
 
     sleep(2);

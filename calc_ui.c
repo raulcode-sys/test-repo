@@ -1,12 +1,5 @@
 
 
-#define CU_BG  "\x1b[48;5;17m"
-#define CU_FG  "\x1b[38;5;51m"
-#define CU_HI  "\x1b[48;5;51m\x1b[38;5;17m"
-#define CU_DIM "\x1b[38;5;33m"
-#define CU_YEL "\x1b[38;5;226m"
-#define CU_GRN "\x1b[38;5;82m"
-#define CU_RED "\x1b[38;5;196m"
 #define CU_RST "\x1b[0m"
 
 static double calc_eval(const char *s, int *err);  
@@ -15,7 +8,7 @@ static void cu_w(const char *s) { write(1, s, strlen(s)); }
 static void cu_at(int r, int c) { char b[24]; snprintf(b,24,"\x1b[%d;%dH",r,c); cu_w(b); }
 
 static void cu_paint_bg(int rows, int cols) {
-    cu_w(CU_BG);
+    cu_w(th_bg());
     cu_at(1,1);
     for (int r=0;r<rows;r++) {
         for (int c=0;c<cols;c++) cu_w(" ");
@@ -29,42 +22,42 @@ static void cu_draw(const char *expr, const char *result, int err, int rows, int
     const char *title = "  T R I U M P H    C A L C U L A T O R  ";
     int tx = (cols - (int)strlen(title)) / 2;
     cu_at(2, tx);
-    cu_w(CU_FG"\x1b[1m"); cu_w(title); cu_w("\x1b[22m");
+    cu_w(th_fg()); cu_w("\x1b[1m"); cu_w(title); cu_w("\x1b[22m");
 
     int bw = 50; if (bw>cols-4) bw=cols-4;
     int bx = (cols - bw) / 2;
     int by = 6;
 
-    cu_at(by, bx); cu_w(CU_FG"\u250c");
+    cu_at(by, bx); cu_w(th_fg()); cu_w("\u250c");
     for (int i=0;i<bw-2;i++) cu_w("\u2500");
     cu_w("\u2510");
 
-    cu_at(by+1, bx);    cu_w(CU_FG"\u2502 "CU_DIM"Expr: "CU_YEL);
+    cu_at(by+1, bx);    cu_w(th_fg()); cu_w("\u2502 "); cu_w(th_dim()); cu_w("Expr: "); cu_w(th_yel());
     
     char ebuf[256]; snprintf(ebuf,256,"%-40s", expr);
     cu_w(ebuf);
-    cu_at(by+1, bx+bw-1); cu_w(CU_FG"\u2502");
+    cu_at(by+1, bx+bw-1); cu_w(th_fg()); cu_w("\u2502");
 
-    cu_at(by+2, bx); cu_w(CU_FG"\u251c");
+    cu_at(by+2, bx); cu_w(th_fg()); cu_w("\u251c");
     for (int i=0;i<bw-2;i++) cu_w("\u2500");
     cu_w("\u2524");
 
-    cu_at(by+3, bx); cu_w(CU_FG"\u2502 "CU_DIM"= ");
-    if (err) cu_w(CU_RED);
-    else     cu_w(CU_GRN"\x1b[1m");
+    cu_at(by+3, bx); cu_w(th_fg()); cu_w("\u2502 "); cu_w(th_dim()); cu_w("= ");
+    if (err) cu_w(th_red());
+    else     cu_w(th_grn()); cu_w("\x1b[1m");
     char rbuf[256]; snprintf(rbuf,256,"%-44s", result);
     cu_w(rbuf);
     cu_w("\x1b[22m");
-    cu_at(by+3, bx+bw-1); cu_w(CU_FG"\u2502");
+    cu_at(by+3, bx+bw-1); cu_w(th_fg()); cu_w("\u2502");
 
-    cu_at(by+4, bx); cu_w(CU_FG"\u2514");
+    cu_at(by+4, bx); cu_w(th_fg()); cu_w("\u2514");
     for (int i=0;i<bw-2;i++) cu_w("\u2500");
     cu_w("\u2518");
 
     cu_at(rows-2, 4);
-    cu_w(CU_DIM"Type expression. Operators: + - * / % ^ ( )");
+    cu_w(th_dim()); cu_w("Type expression. Operators: + - * / % ^ ( )");
     cu_at(rows-1, 4);
-    cu_w(CU_FG"ENTER "CU_DIM"evaluate   "CU_FG"C "CU_DIM"clear   "CU_FG"ESC "CU_DIM"back to menu");
+    cu_w(th_fg()); cu_w("ENTER "); cu_w(th_dim()); cu_w("evaluate   "); cu_w(th_fg()); cu_w("C "); cu_w(th_dim()); cu_w("clear   "); cu_w(th_fg()); cu_w("ESC "); cu_w(th_dim()); cu_w("back to menu");
 
     cu_at(by+1, bx + 8 + (int)strlen(expr));
     cu_w("\x1b[?25h");

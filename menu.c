@@ -1,16 +1,7 @@
 
 
-#define MN_BG  "\x1b[48;5;17m"
-#define MN_FG  "\x1b[38;5;51m"
-#define MN_HI  "\x1b[48;5;51m\x1b[38;5;17m"
-#define MN_DIM "\x1b[38;5;33m"
-#define MN_DIM2 "\x1b[38;5;67m"
-#define MN_YEL "\x1b[38;5;226m"
-#define MN_GRN "\x1b[38;5;82m"
-#define MN_RED "\x1b[38;5;196m"
 
 static int b_calcui(Cmd *c);  
-static int b_settings(Cmd *c);
 
 static const struct { const char *label; const char *desc; const char *cmd; int kind; } MNU[] = {
     {"Snake",      "Classic snake game",            "snake",   0},
@@ -21,7 +12,6 @@ static const struct { const char *label; const char *desc; const char *cmd; int 
     {"Editor",     "Text editor (nano-style)",      "edit",    0},
     {"Files",      "File explorer",                 "files",   0},
     {"Web",        "HTTP browser (ethernet)",       "web",     0},
-    {"Settings",   "Themes & wallpapers",           NULL,      2},
     {"Reboot",     "Restart the machine",           "reboot",  0},
     {"Logout",     "Log out / switch user",         "logout",  0},
     {"Poweroff",   "Shut down",                     "poweroff",0},
@@ -93,7 +83,7 @@ static int mn_readkey_timeout(int seconds) {
 }
 
 static void mn_paint_bg(int rows, int cols) {
-    mn_w(MN_BG);
+    mn_w(th_bg());
     mn_at(1,1);
     for (int r=0;r<rows;r++) {
         for (int c=0;c<cols;c++) mn_w(" ");
@@ -171,16 +161,16 @@ static void mn_draw(int sel, int rows, int cols) {
     int bx = (cols - banner_w) / 2; if (bx<1) bx=1;
     for (int i=0; MN_BANNER[i]; i++) {
         mn_at(by+i, bx);
-        mn_w(MN_FG); mn_w(MN_BANNER[i]);
+        mn_w(th_fg()); mn_w(MN_BANNER[i]);
     }
 
     const char *tag = "« Triumph OS »";
     int tagx = (cols - (int)strlen(tag)) / 2;
     mn_at(by+7, tagx<1?1:tagx);
-    mn_w(MN_YEL); mn_w(tag);
+    mn_w(th_yel()); mn_w(tag);
 
     mn_at(by+8, 1);
-    mn_w(MN_DIM);
+    mn_w(th_dim());
     for (int c=0;c<cols;c++) mn_w("═");
 
     int col_top = by + 10;
@@ -197,11 +187,11 @@ static void mn_draw(int sel, int rows, int cols) {
         mn_at(col_top + i, 2);
         const char *line = MN_HELP_LINES[i];
         if (line[0]=='-' && line[1]=='-') {
-            mn_w(MN_YEL); mn_w(line);
+            mn_w(th_yel()); mn_w(line);
         } else if (line[0]==' ') {
-            mn_w(MN_DIM2); mn_w(line);
+            mn_w(th_dim()2); mn_w(line);
         } else {
-            mn_w(MN_FG); mn_w(line);
+            mn_w(th_fg()); mn_w(line);
         }
     }
 
@@ -212,21 +202,21 @@ static void mn_draw(int sel, int rows, int cols) {
         mn_at(col_top + i, right_x);
         const char *line = info[i];
         if (line[0]=='-' && line[1]=='-') {
-            mn_w(MN_YEL); mn_w(line);
+            mn_w(th_yel()); mn_w(line);
         } else if (line[0]==0) {
             
         } else if (line[0]=='T' || (line[0]==' ' && (line[7]=='T' || line[5]=='T'))) {
             
-            mn_w(MN_FG"\x1b[1m"); mn_w(line); mn_w("\x1b[22m");
+            mn_w(th_fg()); mn_w("\x1b[1m"); mn_w(line); mn_w("\x1b[22m");
         } else {
-            mn_w(MN_FG);
+            mn_w(th_fg());
             char head[8]={0};
             int k=0;
             while (line[k] && line[k]!=':' && k<5) { head[k]=line[k]; k++; }
             head[k]=0;
             mn_w(head);
             if (line[k]==':') {
-                mn_w(MN_DIM2);
+                mn_w(th_dim()2);
                 mn_w(line+k);
             }
         }
@@ -234,7 +224,7 @@ static void mn_draw(int sel, int rows, int cols) {
 
     for (int y=col_top-1; y<col_top+col_h+1; y++) {
         mn_at(y, left_w + 1);
-        mn_w(MN_DIM); mn_w("│");
+        mn_w(th_dim()); mn_w("│");
         mn_at(y, right_x - 1);
         mn_w("│");
     }
@@ -246,31 +236,31 @@ static void mn_draw(int sel, int rows, int cols) {
     if (mx < center_x) mx = center_x;
 
     mn_at(my-2, mx);
-    mn_w(MN_YEL"\x1b[1m"); mn_w("── MENU ──"); mn_w("\x1b[22m");
+    mn_w(th_yel()); mn_w("\x1b[1m"); mn_w("── MENU ──"); mn_w("\x1b[22m");
 
     for (int i=0; i<MNU_N; i++) {
         mn_at(my+i, mx);
         if (i == sel) {
-            mn_w(MN_HI"\x1b[1m");
+            mn_w(th_hi()); mn_w("\x1b[1m");
             char line[64];
             snprintf(line,64,"  ▶ %-12s  %-22s", MNU[i].label, MNU[i].desc);
             mn_w(line);
-            mn_w("\x1b[22m"); mn_w(MN_BG MN_FG);
+            mn_w("\x1b[22m"); mn_w(th_bg()); mn_w(th_fg());
         } else {
-            mn_w(MN_FG);
+            mn_w(th_fg());
             char line[64];
             snprintf(line,64,"    %-12s  ", MNU[i].label);
             mn_w(line);
-            mn_w(MN_DIM);
+            mn_w(th_dim());
             mn_w(MNU[i].desc);
         }
     }
 
     mn_at(rows-1, 1);
-    mn_w(MN_DIM);
+    mn_w(th_dim());
     for (int c=0;c<cols;c++) mn_w("═");
     mn_at(rows, 4);
-    mn_w(MN_FG"↑↓ "MN_DIM"move  "MN_FG"ENTER "MN_DIM"select  "MN_FG"ESC "MN_DIM"hide menu");
+    mn_w(th_fg()); mn_w("↑↓ "); mn_w(th_dim()); mn_w("move  "); mn_w(th_fg()); mn_w("ENTER "); mn_w(th_dim()); mn_w("select  "); mn_w(th_fg()); mn_w("ESC "); mn_w(th_dim()); mn_w("hide menu");
 
     fflush(stdout);
 }
@@ -303,9 +293,6 @@ static int b_menu(Cmd *c) { (void)c;
             if (MNU[sel].kind == 1) {
                 Cmd dc = {0};
                 b_calcui(&dc);
-            } else if (MNU[sel].kind == 2) {
-                Cmd dc = {0};
-                b_settings(&dc);
             } else if (MNU[sel].cmd) {
                 char buf[256];
                 strncpy(buf, MNU[sel].cmd, sizeof(buf)-1);

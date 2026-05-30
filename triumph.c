@@ -898,37 +898,58 @@ int main(int argc,char *argv[]){
     { Cmd dc={0}; b_menu(&dc); }
     show_wallpaper();
 
-    /* idle on wallpaper — Shift+M/T only */
-    char line[SH_MAX_INPUT];
-    while(running){
-        print_prompt();
-        int n=triumph_readline(line,SH_MAX_INPUT);
-        if(n<0){printf("\n"BLD CYN"logout"RST"\n");break;}
-        if(n==0)continue;
-        if(n==2 && line[0]=='\x01' && line[1]=='M'){
-            fb_toggle_menu();
-            if(menu_open){ Cmd dc={0}; b_menu(&dc); fb_menu_post(); }
-            continue;
-        }
-        if(n==2 && line[0]=='\x01' && line[1]=='T'){
-            fb_toggle_term();
-            if(term_open){
+    /* wallpaper idle loop — raw read, no prompt, no echo
+       only Shift+M and Shift+T are accepted */
+    {
+        struct termios wo, wr;
+        tcgetattr(0,&wo); wr=wo;
+        wr.c_lflag &= ~(ICANON|ECHO|ISIG);
+        wr.c_cc[VMIN]=1; wr.c_cc[VTIME]=0;
+        tcsetattr(0,TCSAFLUSH,&wr);
+
+        while(running){
+            unsigned char c;
+            if(read(0,&c,1)<=0) break;
+
+            /* sentinel from readline or external kb */
+            if(c==0x01){
+                unsigned char c2;
+                if(read(0,&c2,1)<=0) continue;
+                c=c2;
+            }
+
+            if(c=='M'){
+                /* open menu */
+                tcsetattr(0,TCSANOW,&wo);
+                { Cmd dc={0}; b_menu(&dc); }
+                show_wallpaper();
+                tcsetattr(0,TCSAFLUSH,&wr);
+                continue;
+            }
+            if(c=='T'){
+                /* open terminal */
+                tcsetattr(0,TCSANOW,&wo);
+                write(1,"\x1b[?25h\x1b[2J\x1b[H",13);
+                fflush(stdout);
                 char tl[SH_MAX_INPUT];
                 while(running){
                     print_prompt();
                     int tn=triumph_readline(tl,SH_MAX_INPUT);
                     if(tn<0) break;
                     if(tn==0) continue;
+                    /* Shift+T to close terminal */
                     if(tn==2&&tl[0]=='\x01'&&tl[1]=='T') break;
                     hist_add(tl);
                     run_line(tl);
                 }
-                fb_term_post();
+                show_wallpaper();
+                tcsetattr(0,TCSAFLUSH,&wr);
+                continue;
             }
-            continue;
+            /* all other keys ignored on wallpaper */
         }
-        hist_add(line);
-        run_line(line);}
+        tcsetattr(0,TCSANOW,&wo);
+    }
     if(getpid()==1){
         system("reboot -f 2>/dev/null");
         for(;;)pause();}

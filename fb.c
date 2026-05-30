@@ -35,7 +35,7 @@ static void fb_rescale_wp(void){
 
 static void show_wallpaper(void){
     fb_draw_wallpaper();
-    write(1,"\x1b[2J\x1b[H\x1b[?25l",14);fflush(stdout);
+    write(1,"\x1b[?25l",6);fflush(stdout);
 }
 
 static void fb_toggle_menu(void){
